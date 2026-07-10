@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from godotllminteraction.cli import image, tscn
+from godotllminteraction.cli import image, specifications, tscn
 from godotllminteraction.cli._common import (
     EXIT_ERROR,
     EXIT_INTERRUPTED,
@@ -26,6 +26,11 @@ app = typer.Typer(
 
 app.add_typer(image.app, name="image", help="Tilemap and image utilities.")
 app.add_typer(tscn.app, name="tscn", help="Godot scene (.tscn) utilities.")
+app.add_typer(
+    specifications.app,
+    name="specifications",
+    help="Codegen utilities for versioned Godot API specifications.",
+)
 
 
 @app.callback()

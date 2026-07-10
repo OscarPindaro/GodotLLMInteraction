@@ -1,0 +1,257 @@
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from godotllminteraction.cli._common import (
+    EXIT_ERROR,
+    print_error,
+    print_success,
+    print_text,
+)
+
+app = typer.Typer(help="Codegen utilities for versioned Godot API specifications.")
+
+_SCHEMAS_PATH = (
+    Path(__file__).resolve().parents[1] / "specifications" / "v4_7_0" / "schemas.py"
+)
+
+_TYPE_NAME_RE = re.compile(r"(?<!^)(?<![A-Z])(?=[A-Z][a-z])")
+
+_OPERATOR_MEMBER_NAMES = {
+    "!=": "NOT_EQUAL",
+    "%": "MODULO",
+    "&": "BIT_AND",
+    "*": "MULTIPLY",
+    "**": "POWER",
+    "+": "ADD",
+    "-": "SUBTRACT",
+    "/": "DIVIDE",
+    "<": "LESS",
+    "<<": "SHIFT_LEFT",
+    "<=": "LESS_EQUAL",
+    "==": "EQUAL",
+    ">": "GREATER",
+    ">=": "GREATER_EQUAL",
+    ">>": "SHIFT_RIGHT",
+    "^": "BIT_XOR",
+    "and": "AND",
+    "in": "IN",
+    "not": "NOT",
+    "or": "OR",
+    "unary+": "UNARY_PLUS",
+    "unary-": "UNARY_MINUS",
+    "xor": "XOR",
+    "|": "BIT_OR",
+    "~": "BIT_NOT",
+}
+
+
+def _type_name_to_member(value: str) -> str:
+    return _TYPE_NAME_RE.sub("_", value).upper()
+
+
+def _operator_to_member(value: str) -> str:
+    try:
+        return _OPERATOR_MEMBER_NAMES[value]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown operator symbol {value!r}; add a member name for it to "
+            f"_OPERATOR_MEMBER_NAMES in {__name__}"
+        ) from exc
+
+
+def _extract_type_names(data: dict) -> set[str]:
+    """Every Godot type name that shows up as a return/argument/member/constant type."""
+    names: set[str] = set()
+    for fn in data.get("utility_functions", []):
+        if "return_type" in fn:
+            names.add(fn["return_type"])
+    for cls in data.get("builtin_classes", []):
+        if "indexing_return_type" in cls:
+            names.add(cls["indexing_return_type"])
+        for op in cls.get("operators", []):
+            if "right_type" in op:
+                names.add(op["right_type"])
+            names.add(op["return_type"])
+        for member in cls.get("members", []):
+            names.add(member["type"])
+        for const in cls.get("constants", []):
+            names.add(const["type"])
+        for ctor in cls.get("constructors", []):
+            for arg in ctor.get("arguments", []):
+                names.add(arg["type"])
+        for method in cls.get("methods", []):
+            if "return_type" in method:
+                names.add(method["return_type"])
+            for arg in method.get("arguments", []):
+                names.add(arg["type"])
+    return names
+
+
+def _extract_utility_function_categories(data: dict) -> set[str]:
+    return {fn["category"] for fn in data.get("utility_functions", [])}
+
+
+def _extract_operator_symbols(data: dict) -> set[str]:
+    symbols: set[str] = set()
+    for cls in data.get("builtin_classes", []):
+        for op in cls.get("operators", []):
+            symbols.add(op["name"])
+    return symbols
+
+
+def _extract_argument_metas(data: dict) -> set[str]:
+    """Native C++ type refinements ('meta') seen on class method arguments/return values."""
+    metas: set[str] = set()
+    for cls in data.get("classes", []):
+        for method in cls.get("methods", []):
+            for arg in method.get("arguments", []):
+                if "meta" in arg:
+                    metas.add(arg["meta"])
+            if "meta" in method.get("return_value", {}):
+                metas.add(method["return_value"]["meta"])
+    return metas
+
+
+def _extract_class_api_types(data: dict) -> set[str]:
+    return {cls["api_type"] for cls in data.get("classes", [])}
+
+
+def _quote(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _render_enum(
+    class_name: str, docstring: str | None, members: list[tuple[str, str]]
+) -> str:
+    lines = [f"class {class_name}(str, Enum):"]
+    if docstring:
+        lines.append(f'    """{docstring}"""')
+    for member_name, value in members:
+        lines.append(f"    {member_name} = {_quote(value)}")
+    return "\n".join(lines)
+
+
+def render_schemas_source(data: dict) -> str:
+    """Render the full contents of specifications/v4_7_0/schemas.py from an extension_api.json dict.
+
+    This codegen is specific to the 4.7.0 API dump shape (type-name domain, operator
+    symbols, argument metas, etc.) and is not guaranteed to work for other Godot versions.
+    """
+    type_members = [
+        (_type_name_to_member(v), v) for v in sorted(_extract_type_names(data))
+    ]
+    category_members = [
+        (v.upper(), v) for v in sorted(_extract_utility_function_categories(data))
+    ]
+    operator_members = [
+        (_operator_to_member(v), v) for v in sorted(_extract_operator_symbols(data))
+    ]
+    meta_members = [(v.upper(), v) for v in sorted(_extract_argument_metas(data))]
+    api_type_members = [(v.upper(), v) for v in sorted(_extract_class_api_types(data))]
+
+    parts = [
+        '"""Auto-generated by `gli specifications sync-schemas-v4-7-0`. Do not edit by hand."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from enum import Enum",
+        "from typing import Union",
+        "",
+        "",
+        _render_enum(
+            "GodotTypeNameEnum",
+            "Name of a Godot variant/builtin type, as it shows up across return types, argument types, etc.",
+            type_members,
+        ),
+        "",
+        "GodotTypeName = Union[GodotTypeNameEnum, str]",
+        "",
+        "UtilityFunctionReturnType = GodotTypeName",
+        "",
+        "",
+        _render_enum("UtilityFunctionCategoryEnum", None, category_members),
+        "",
+        "",
+        "UtilityFunctionCategory = Union[UtilityFunctionCategoryEnum, str]",
+        "",
+        "",
+        _render_enum("BuiltinClassOperatorNameEnum", None, operator_members),
+        "",
+        "",
+        "BuiltinClassOperatorName = Union[BuiltinClassOperatorNameEnum, str]",
+        "",
+        "",
+        _render_enum(
+            "GodotArgumentMetaEnum",
+            "Native C++ type refinement of an argument/return value, e.g. 'int64', 'double', 'uint8'.",
+            meta_members,
+        ),
+        "",
+        "",
+        "GodotArgumentMeta = Union[GodotArgumentMetaEnum, str]",
+        "",
+        "",
+        _render_enum("ClassApiTypeEnum", None, api_type_members),
+        "",
+        "",
+        "ClassApiType = Union[ClassApiTypeEnum, str]",
+        "",
+    ]
+    return "\n".join(parts)
+
+
+@app.command("sync-schemas-v4-7-0")
+def sync_schemas_v4_7_0(
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Only check whether the generated schemas are up to date; don't write.",
+        ),
+    ] = False,
+) -> None:
+    """Regenerate specifications/v4_7_0/schemas.py from extension_api.json.
+
+    This is specific to the 4.7.0 API dump shape; it is not guaranteed to produce
+    correct results for extension_api.json dumps from other Godot versions (e.g. 4.8).
+    """
+    data = json.loads(api_json.read_text())
+    try:
+        updated = render_schemas_source(data)
+    except ValueError as exc:
+        print_error(str(exc))
+        raise typer.Exit(code=EXIT_ERROR) from exc
+
+    original = _SCHEMAS_PATH.read_text() if _SCHEMAS_PATH.exists() else ""
+    changed = updated != original
+
+    if check:
+        if changed:
+            print_error(
+                "specifications/v4_7_0/schemas.py is stale. "
+                "Run `gli specifications sync-schemas-v4-7-0` to refresh."
+            )
+            raise typer.Exit(code=EXIT_ERROR)
+        print_success("Generated schemas are up to date.")
+    elif changed:
+        _SCHEMAS_PATH.write_text(updated)
+        print_success(f"Updated {_SCHEMAS_PATH}.")
+    else:
+        print_text("Generated schemas already up to date.")

@@ -55,3 +55,6 @@ dmypy.json
 # Environment variables
 .env.local
 .env.*.local
+
+# extension_api.json, too big to be tracked
+extension_api.json
