@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://b2o4y5l67my1x"]
+
+[ext_resource type="Texture2D" uid="uid://d3rsoilnaph07" path="res://asset/tilemap_packed.png" id="1_tilemap"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_door_0"]
+atlas = ExtResource("1_tilemap")
+region = Rect2(144, 0, 16, 16)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_door_1"]
+atlas = ExtResource("1_tilemap")
+region = Rect2(144, 16, 16, 16)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_door_2"]
+atlas = ExtResource("1_tilemap")
+region = Rect2(144, 32, 16, 16)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_door_3"]
+atlas = ExtResource("1_tilemap")
+region = Rect2(144, 48, 16, 16)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_door"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_door_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_door_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_door_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_door_3")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="Door" type="Node2D" unique_id=725077531]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1685869789]
+sprite_frames = SubResource("SpriteFrames_door")
+autoplay = "default"
