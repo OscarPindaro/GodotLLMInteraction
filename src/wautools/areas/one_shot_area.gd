@@ -1,0 +1,1 @@
+extends BooleanArea2D

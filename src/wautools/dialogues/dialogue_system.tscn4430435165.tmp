@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://1a6a6aknwba2"]
+
+[ext_resource type="Script" uid="uid://d2ctk7y4xw0pv" path="res://addons/ez_dialogue/ez_dialogue_node.gd" id="1_1eml3"]
+[ext_resource type="Script" uid="uid://dmi6kfffbvu27" path="res://dialogues/dialogue_system.gd" id="1_xnnjv"]
+[ext_resource type="JSON" path="res://dialogues/boss_fight.json" id="2_v4n8t"]
+[ext_resource type="Script" uid="uid://dlu83vpy0lx17" path="res://dialogues/text.gd" id="3_wwosp"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_v4n8t"]
+font_size = 40
+
+[node name="DialogueSystem" type="Control" unique_id=1875785294]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_xnnjv")
+dialogue_json = ExtResource("2_v4n8t")
+state = {
+"lore": "I'm the strongman! I'm strong! I like gyms! Aaaaargh",
+"name": "strongman"
+}
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1971168310]
+layer = 100
+
+[node name="PanelContainer" type="PanelContainer" parent="CanvasLayer" unique_id=321851300]
+offset_left = 408.0
+offset_top = 729.0
+offset_right = 1577.0
+offset_bottom = 1036.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/PanelContainer" unique_id=1197693530]
+layout_mode = 2
+
+[node name="text" type="Label" parent="CanvasLayer/PanelContainer/VBoxContainer" unique_id=1640581911]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "testtesteteteteteteszdtwtsdts"
+label_settings = SubResource("LabelSettings_v4n8t")
+script = ExtResource("3_wwosp")
+
+[node name="EzDialogue" type="Node" parent="." unique_id=240790981]
+script = ExtResource("1_1eml3")
+metadata/_custom_type_script = "uid://d2ctk7y4xw0pv"

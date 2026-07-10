@@ -1,0 +1,20 @@
+[gd_scene load_steps=6 format=3 uid="uid://sts6m6gfyige"]
+
+[ext_resource type="Script" uid="uid://dl3vosq4bghma" path="res://scenes/WAUAudioPlayer/test_audio.gd" id="1_if52f"]
+[ext_resource type="Script" uid="uid://nu032d1rd74y" path="res://scenes/WAUAudioPlayer/sounds.gd" id="1_sxtir"]
+[ext_resource type="Script" uid="uid://c6q11j7vtq5hx" path="res://scenes/player/audio_tracks.gd" id="2_j1xkc"]
+[ext_resource type="Script" uid="uid://dbi5utc5kf0ho" path="res://scenes/player/audio_track.gd" id="3_if52f"]
+
+[sub_resource type="Resource" id="Resource_8v3fl"]
+script = ExtResource("2_j1xkc")
+sounds = Array[ExtResource("3_if52f")]([null])
+metadata/_custom_type_script = "uid://c6q11j7vtq5hx"
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_if52f")
+
+[node name="Sounds" type="AudioStreamPlayer2D" parent="."]
+script = ExtResource("1_sxtir")
+sound_collection = SubResource("Resource_8v3fl")
+track_name = "Test"
+metadata/_custom_type_script = "uid://nu032d1rd74y"

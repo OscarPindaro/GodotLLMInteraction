@@ -1,0 +1,25 @@
+[gd_scene load_steps=4 format=3 uid="uid://bpejxnljvo1o0"]
+
+[ext_resource type="Script" uid="uid://bkotsxipsik28" path="res://wautools/areas/boolean_area2D.gd" id="1_17cur"]
+[ext_resource type="Script" uid="uid://dclcos03q17cb" path="res://wautools/areas/boolean_area2d_observer.gd" id="2_1mgtj"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1mgtj"]
+
+[node name="BooleanAreaObserverTool" type="Node2D"]
+
+[node name="BooleanArea2D" type="Area2D" parent="."]
+position = Vector2(211, 86)
+script = ExtResource("1_17cur")
+metadata/_custom_type_script = "uid://bkotsxipsik28"
+metadata/_edit_group_ = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BooleanArea2D"]
+shape = SubResource("RectangleShape2D_1mgtj")
+
+[node name="ObjectToObserve" type="Node2D" parent="."]
+
+[node name="BooleanArea2DObserver" type="Node2D" parent="ObjectToObserve" node_paths=PackedStringArray("observed_area")]
+position = Vector2(66, 49)
+script = ExtResource("2_1mgtj")
+observed_area = NodePath("../../BooleanArea2D")
+metadata/_custom_type_script = "uid://dclcos03q17cb"

@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://jv72x18k4o2w"]
+
+[ext_resource type="Script" uid="uid://gwen72ujy6ef" path="res://dialogues/dialogue_button.gd" id="1_k4lip"]
+
+[node name="DialogueButton" type="Button" unique_id=1044463241]
+offset_right = 283.0
+offset_bottom = 32.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1_k4lip")

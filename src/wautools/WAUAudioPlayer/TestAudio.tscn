@@ -1,0 +1,45 @@
+[gd_scene load_steps=13 format=3 uid="uid://sts6m6gfyige"]
+
+[ext_resource type="Script" uid="uid://dl3vosq4bghma" path="res://scenes/WAUAudioPlayer/test_audio.gd" id="1_if52f"]
+[ext_resource type="Script" uid="uid://nu032d1rd74y" path="res://scenes/WAUAudioPlayer/sounds.gd" id="1_sxtir"]
+[ext_resource type="Script" uid="uid://cmunb81jesp2d" path="res://scenes/WAUAudioPlayer/audio_tracks.gd" id="3_st0hx"]
+[ext_resource type="Script" uid="uid://dr5yhyxqxkigf" path="res://scenes/WAUAudioPlayer/audio_track.gd" id="4_7r5rd"]
+[ext_resource type="AudioStream" uid="uid://dbg0p08t7a6qx" path="res://receive_damage_2.wav" id="4_ckn26"]
+[ext_resource type="AudioStream" uid="uid://b0vkyjiicxjwh" path="res://asset/music/menu_music.wav" id="5_7r5rd"]
+[ext_resource type="AudioStream" uid="uid://d11j11v84e7ab" path="res://asset/sfx/player/footsteps/footstep2.wav" id="7_4c738"]
+
+[sub_resource type="Resource" id="Resource_q0ofn"]
+script = ExtResource("4_7r5rd")
+track_name = "STOP_MOVING"
+track_file = ExtResource("5_7r5rd")
+metadata/_custom_type_script = "uid://dr5yhyxqxkigf"
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_q0ofn"]
+streams_count = 1
+stream_0/stream = ExtResource("7_4c738")
+
+[sub_resource type="Resource" id="Resource_if52f"]
+script = ExtResource("4_7r5rd")
+track_name = "STEP"
+track_file = SubResource("AudioStreamRandomizer_q0ofn")
+metadata/_custom_type_script = "uid://dr5yhyxqxkigf"
+
+[sub_resource type="Resource" id="Resource_ckn26"]
+script = ExtResource("4_7r5rd")
+track_name = "DMG"
+track_file = ExtResource("4_ckn26")
+metadata/_custom_type_script = "uid://dr5yhyxqxkigf"
+
+[sub_resource type="Resource" id="Resource_j1xkc"]
+script = ExtResource("3_st0hx")
+sounds = Array[ExtResource("4_7r5rd")]([SubResource("Resource_q0ofn"), SubResource("Resource_if52f"), SubResource("Resource_ckn26")])
+metadata/_custom_type_script = "uid://cmunb81jesp2d"
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_if52f")
+
+[node name="Sounds" type="AudioStreamPlayer2D" parent="."]
+script = ExtResource("1_sxtir")
+sound_collection = SubResource("Resource_j1xkc")
+track_name = "Test"
+metadata/_custom_type_script = "uid://nu032d1rd74y"

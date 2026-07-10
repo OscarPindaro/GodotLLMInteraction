@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://bs1j6gvprfrph"]
+
+[ext_resource type="Script" uid="uid://yfsvhdr8kyrr" path="res://wautools/map_generation/space_partition/space_partition_generation.gd" id="1_eu13p"]
+[ext_resource type="Script" uid="uid://dtaannlmuxyh4" path="res://wautools/map_generation/space_partition/space_partition.gd" id="2_6eejt"]
+
+[node name="SpacePartitionGeneration" type="Node2D"]
+script = ExtResource("1_eu13p")
+map_size = Vector2i(32, 32)
+min_splits = 4
+max_splits = 6
+min_size_partition = 6
+preference_ratio = 20.0
+split_prob = 0.99
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+
+[node name="MapGenerator" type="Node" parent="."]
+script = ExtResource("2_6eejt")
+metadata/_custom_type_script = "uid://dtaannlmuxyh4"
