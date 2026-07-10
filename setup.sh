@@ -7,3 +7,5 @@ uv sync
 if ! uv tool list 2>/dev/null | grep -q '^semble '; then
   uv tool install semble
 fi
+
+uv run pre-commit install

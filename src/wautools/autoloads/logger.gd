@@ -1,5 +1,5 @@
-extends Node
 class_name Log
+extends Node
 
 ## Centralized logger with levels, colored output, and per-label filtering.
 
@@ -21,12 +21,30 @@ class_name Log
 ##   Log.set_label_level("NPC", Log.Level.DEBUG) # per-label override
 ##   Log.set_label_color("NPC", "green")         # custom label color
 ##   Log.show_timestamp = true                   # enable timestamps
-##   Log.frame_log_time_s = n                    # if n > 0, log once every n seconds 
+##   Log.frame_log_time_s = n                    # if n > 0, log once every n seconds
 ##												 # in frame functions, set fps to 60
 
 # ── Attributes ───────────────────────────────────────────────────────────────
 
-enum Level {DEBUG = 0, INFO = 1, WARN = 2, ERROR = 3, NONE = 4}
+enum Level { DEBUG = 0, INFO = 1, WARN = 2, ERROR = 3, NONE = 4 }
+
+# ── Colors (BBCode for print_rich) ──────────────────────────────────────────
+
+const _DEFAULT_LABEL_COLOR: String = "cyan"
+
+const _LEVEL_COLORS: Dictionary = {
+	Level.DEBUG: "gray",
+	Level.INFO: "white",
+	Level.WARN: "yellow",
+	Level.ERROR: "red",
+}
+
+const _LEVEL_NAMES: Dictionary = {
+	Level.DEBUG: "DEBUG",
+	Level.INFO: "INFO ",
+	Level.WARN: "WARN ",
+	Level.ERROR: "ERROR",
+}
 
 ## Global minimum log level. Messages below this are discarded.
 static var min_level: Level = Level.DEBUG
@@ -59,27 +77,8 @@ static var frame_log_time_s: int = -1:
 
 static var frame_number: int = 0
 
-
-# ── Colors (BBCode for print_rich) ──────────────────────────────────────────
-
-const _DEFAULT_LABEL_COLOR: String = "cyan"
-
-const _LEVEL_COLORS: Dictionary = {
-	Level.DEBUG: "gray",
-	Level.INFO: "white",
-	Level.WARN: "yellow",
-	Level.ERROR: "red",
-}
-
-const _LEVEL_NAMES: Dictionary = {
-	Level.DEBUG: "DEBUG",
-	Level.INFO: "INFO ",
-	Level.WARN: "WARN ",
-	Level.ERROR: "ERROR",
-}
-
-
 # ── Public API ───────────────────────────────────────────────────────────────
+
 
 ##### LOG LEVEL #####
 ## WARN and ERROR also push a Godot warning/error (shows in Debugger panel).
@@ -134,6 +133,7 @@ static func clear_label_level(label: String) -> void:
 
 ##### LABEL COLORS #####
 
+
 ## Assign a color to a label. Accepts BBCode color names ("red", "green",
 ## "magenta", "orange") or hex ("#ff8800").
 static func set_label_color(label: String, color: String) -> void:
@@ -147,6 +147,7 @@ static func clear_label_color(label: String) -> void:
 ##### FRAME LOGGING #####
 ## Frame logging is enabled only if frame_log_time_s > 0
 ## when enabled, fps are set to 60
+
 
 static func debug_frame(label: String, ...args: Array) -> void:
 	_log_frame(Level.DEBUG, label, args)
@@ -165,6 +166,7 @@ static func error_frame(label: String, ...args: Array) -> void:
 
 
 # ── Internals ────────────────────────────────────────────────────────────────
+
 
 static func _should_log(level: Level, label: String) -> bool:
 	# Check allowlist first
@@ -201,9 +203,10 @@ static func _log(level: Level, label: String, args: Array) -> void:
 		secs = secs % 60
 		timestamp = "[color=dimgray]%02d:%02d.%03d[/color] " % [mins, secs, ms]
 
-	var line := "%s[color=%s][b]%s[/b][/color] [color=%s][%s][/color] %s" % [
-		timestamp, level_color, level_name, label_color, label, msg
-	]
+	var line := (
+		"%s[color=%s][b]%s[/b][/color] [color=%s][%s][/color] %s"
+		% [timestamp, level_color, level_name, label_color, label, msg]
+	)
 
 	print_rich(line)
 
@@ -213,10 +216,11 @@ static func _log(level: Level, label: String, args: Array) -> void:
 	elif level == Level.ERROR:
 		push_error("[%s] %s" % [label, msg])
 
+
 static func _log_frame(level: Level, label: String, args: Array) -> void:
 	if frame_log_time_s <= 0:
 		return
-	
+
 	frame_number += 1
 
 	if frame_number < frame_log_time_s * 60:

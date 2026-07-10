@@ -1,4 +1,4 @@
+class_name NewSoundsCollection
 extends Resource
-class_name  NewSoundsCollection
 
 @export var sounds: Array[NewAudioTrack] = []

@@ -10,6 +10,7 @@ func on_vision_cone_entered(area: Area2D):
 	if area.is_in_group("enemies"):
 		print("ciao entered")
 
+
 func on_vision_cone_exited(area: Area2D):
 	if area.is_in_group("enemies"):
 		print("ciao exited")
