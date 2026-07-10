@@ -43,3 +43,6 @@ animations = [{
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1685869789]
 sprite_frames = SubResource("SpriteFrames_door")
 autoplay = "default"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=2136365318]
+polygon = PackedVector2Array(10, 0, 0, 20, 70, 30)

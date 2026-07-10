@@ -1,26 +1,85 @@
 from __future__ import annotations
 
 import json
+import keyword
 import re
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import BaseModel
 
 from godotllminteraction.cli._common import (
     EXIT_ERROR,
+    EXIT_USAGE,
     print_error,
     print_success,
     print_text,
+    print_warning,
 )
 
 app = typer.Typer(help="Codegen utilities for versioned Godot API specifications.")
 
-_SCHEMAS_PATH = (
-    Path(__file__).resolve().parents[1] / "specifications" / "v4_7_0" / "schemas.py"
-)
+_SPECIFICATIONS_ROOT = Path(__file__).resolve().parents[1] / "specifications"
+_SPEC_V4_7_0_PATH = _SPECIFICATIONS_ROOT / "v4_7_0" / "spec.py"
 
+_VERSION_RE = re.compile(r"^v\d+(_\d+){1,2}$")
 _TYPE_NAME_RE = re.compile(r"(?<!^)(?<![A-Z])(?=[A-Z][a-z])")
+
+
+def _type_name_to_member(value: str) -> str:
+    return _TYPE_NAME_RE.sub("_", value).upper()
+
+
+def _quote(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+_RESERVED_FIELD_NAMES = set(dir(BaseModel))
+
+
+def _safe_field_name(name: str) -> str:
+    """Godot field names that are Python keywords (e.g. 'from') or shadow a
+    pydantic BaseModel attribute (e.g. 'json', 'copy') get a trailing underscore.
+    """
+    if keyword.iskeyword(name) or name in _RESERVED_FIELD_NAMES:
+        return f"{name}_"
+    return name
+
+
+def _is_stale(path: Path, source: str) -> bool:
+    return not path.exists() or path.read_text() != source
+
+
+def _write_if_changed(path: Path, source: str) -> bool:
+    """Write `source` to `path` (creating parent dirs) if it differs. Returns whether it changed."""
+    changed = _is_stale(path, source)
+    if changed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    return changed
+
+
+def _ensure_version_package(version: str) -> tuple[Path, bool]:
+    """Ensure specifications/<version>/ exists with an __init__.py; return (dir, was_created)."""
+    version_dir = _SPECIFICATIONS_ROOT / version
+    created = not version_dir.exists()
+    version_dir.mkdir(parents=True, exist_ok=True)
+    init_path = version_dir / "__init__.py"
+    if not init_path.exists():
+        init_path.write_text("")
+    return version_dir, created
+
+
+# --- Hand-written spec.py: sync the 4.7.0-specific enum blocks ------------
+#
+# spec.py is partially hand-written and partially generated: the pydantic
+# models are hand-written, but the five enums below (whose full value sets
+# come from enumerating extension_api.json) are kept in sync between marker
+# comments. This extraction is specific to the 4.7.0 API shape (unlike the
+# builtin-classes/classes generators below) since it enumerates closed value
+# sets that could change between Godot versions.
 
 _OPERATOR_MEMBER_NAMES = {
     "!=": "NOT_EQUAL",
@@ -49,10 +108,6 @@ _OPERATOR_MEMBER_NAMES = {
     "|": "BIT_OR",
     "~": "BIT_NOT",
 }
-
-
-def _type_name_to_member(value: str) -> str:
-    return _TYPE_NAME_RE.sub("_", value).upper()
 
 
 def _operator_to_member(value: str) -> str:
@@ -122,11 +177,6 @@ def _extract_class_api_types(data: dict) -> set[str]:
     return {cls["api_type"] for cls in data.get("classes", [])}
 
 
-def _quote(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
 def _render_enum(
     class_name: str, docstring: str | None, members: list[tuple[str, str]]
 ) -> str:
@@ -138,77 +188,85 @@ def _render_enum(
     return "\n".join(lines)
 
 
-def render_schemas_source(data: dict) -> str:
-    """Render the full contents of specifications/v4_7_0/schemas.py from an extension_api.json dict.
+def _render_type_name_block(data: dict) -> str:
+    members = [(_type_name_to_member(v), v) for v in sorted(_extract_type_names(data))]
+    enum_src = _render_enum(
+        "GodotTypeNameEnum",
+        "Name of a Godot variant/builtin type, as it shows up across return types, argument types, etc.",
+        members,
+    )
+    return f"{enum_src}\n\nGodotTypeName = Union[GodotTypeNameEnum, str]"
 
-    This codegen is specific to the 4.7.0 API dump shape (type-name domain, operator
-    symbols, argument metas, etc.) and is not guaranteed to work for other Godot versions.
-    """
-    type_members = [
-        (_type_name_to_member(v), v) for v in sorted(_extract_type_names(data))
-    ]
-    category_members = [
+
+def _render_utility_function_category_block(data: dict) -> str:
+    members = [
         (v.upper(), v) for v in sorted(_extract_utility_function_categories(data))
     ]
-    operator_members = [
+    enum_src = _render_enum("UtilityFunctionCategoryEnum", None, members)
+    return f"{enum_src}\n\nUtilityFunctionCategory = Union[UtilityFunctionCategoryEnum, str]"
+
+
+def _render_operator_name_block(data: dict) -> str:
+    members = [
         (_operator_to_member(v), v) for v in sorted(_extract_operator_symbols(data))
     ]
-    meta_members = [(v.upper(), v) for v in sorted(_extract_argument_metas(data))]
-    api_type_members = [(v.upper(), v) for v in sorted(_extract_class_api_types(data))]
-
-    parts = [
-        '"""Auto-generated by `gli specifications sync-schemas-v4-7-0`. Do not edit by hand."""',
-        "",
-        "from __future__ import annotations",
-        "",
-        "from enum import Enum",
-        "from typing import Union",
-        "",
-        "",
-        _render_enum(
-            "GodotTypeNameEnum",
-            "Name of a Godot variant/builtin type, as it shows up across return types, argument types, etc.",
-            type_members,
-        ),
-        "",
-        "GodotTypeName = Union[GodotTypeNameEnum, str]",
-        "",
-        "UtilityFunctionReturnType = GodotTypeName",
-        "",
-        "",
-        _render_enum("UtilityFunctionCategoryEnum", None, category_members),
-        "",
-        "",
-        "UtilityFunctionCategory = Union[UtilityFunctionCategoryEnum, str]",
-        "",
-        "",
-        _render_enum("BuiltinClassOperatorNameEnum", None, operator_members),
-        "",
-        "",
-        "BuiltinClassOperatorName = Union[BuiltinClassOperatorNameEnum, str]",
-        "",
-        "",
-        _render_enum(
-            "GodotArgumentMetaEnum",
-            "Native C++ type refinement of an argument/return value, e.g. 'int64', 'double', 'uint8'.",
-            meta_members,
-        ),
-        "",
-        "",
-        "GodotArgumentMeta = Union[GodotArgumentMetaEnum, str]",
-        "",
-        "",
-        _render_enum("ClassApiTypeEnum", None, api_type_members),
-        "",
-        "",
-        "ClassApiType = Union[ClassApiTypeEnum, str]",
-        "",
-    ]
-    return "\n".join(parts)
+    enum_src = _render_enum("BuiltinClassOperatorNameEnum", None, members)
+    return f"{enum_src}\n\nBuiltinClassOperatorName = Union[BuiltinClassOperatorNameEnum, str]"
 
 
-@app.command("sync-schemas-v4-7-0")
-def sync_schemas_v4_7_0(
+def _render_argument_meta_block(data: dict) -> str:
+    members = [(v.upper(), v) for v in sorted(_extract_argument_metas(data))]
+    enum_src = _render_enum(
+        "GodotArgumentMetaEnum",
+        "Native C++ type refinement of an argument/return value, e.g. 'int64', 'double', 'uint8'.",
+        members,
+    )
+    return f"{enum_src}\n\nGodotArgumentMeta = Union[GodotArgumentMetaEnum, str]"
+
+
+def _render_api_type_block(data: dict) -> str:
+    members = [(v.upper(), v) for v in sorted(_extract_class_api_types(data))]
+    enum_src = _render_enum("ClassApiTypeEnum", None, members)
+    return f"{enum_src}\n\nClassApiType = Union[ClassApiTypeEnum, str]"
+
+
+_ENUM_BLOCK_RENDERERS = {
+    "GodotTypeNameEnum": _render_type_name_block,
+    "UtilityFunctionCategoryEnum": _render_utility_function_category_block,
+    "BuiltinClassOperatorNameEnum": _render_operator_name_block,
+    "GodotArgumentMetaEnum": _render_argument_meta_block,
+    "ClassApiTypeEnum": _render_api_type_block,
+}
+
+
+def _block_pattern(name: str) -> re.Pattern[str]:
+    marker = re.escape(name)
+    return re.compile(
+        rf"(# === GENERATED: {marker} \(run: gli specifications sync-enums-v4-7-0\) ===\n)"
+        rf"(.*?)"
+        rf"(\n# === END GENERATED: {marker} ===)",
+        re.DOTALL,
+    )
+
+
+def render_spec_source(spec_source: str, data: dict) -> str:
+    """Replace each generated enum block in spec.py's source with freshly derived code."""
+    updated = spec_source
+    for name, renderer in _ENUM_BLOCK_RENDERERS.items():
+        block = renderer(data)
+        pattern = _block_pattern(name)
+        if not pattern.search(updated):
+            raise ValueError(
+                f"Could not find generated block markers for {name!r} in spec.py"
+            )
+        updated = pattern.sub(
+            lambda m, block=block: m.group(1) + block + m.group(3), updated
+        )
+    return updated
+
+
+@app.command("sync-enums-v4-7-0")
+def sync_enums_v4_7_0(
     api_json: Annotated[
         Path,
         typer.Option(
@@ -223,35 +281,591 @@ def sync_schemas_v4_7_0(
         bool,
         typer.Option(
             "--check",
-            help="Only check whether the generated schemas are up to date; don't write.",
+            help="Only check whether the generated enum blocks are up to date; don't write.",
         ),
     ] = False,
 ) -> None:
-    """Regenerate specifications/v4_7_0/schemas.py from extension_api.json.
+    """Sync the generated enum blocks inside specifications/v4_7_0/spec.py from extension_api.json.
 
     This is specific to the 4.7.0 API dump shape; it is not guaranteed to produce
     correct results for extension_api.json dumps from other Godot versions (e.g. 4.8).
     """
     data = json.loads(api_json.read_text())
     try:
-        updated = render_schemas_source(data)
+        updated = render_spec_source(_SPEC_V4_7_0_PATH.read_text(), data)
     except ValueError as exc:
         print_error(str(exc))
         raise typer.Exit(code=EXIT_ERROR) from exc
 
-    original = _SCHEMAS_PATH.read_text() if _SCHEMAS_PATH.exists() else ""
-    changed = updated != original
-
     if check:
-        if changed:
+        if _is_stale(_SPEC_V4_7_0_PATH, updated):
             print_error(
-                "specifications/v4_7_0/schemas.py is stale. "
-                "Run `gli specifications sync-schemas-v4-7-0` to refresh."
+                "Generated enum blocks in specifications/v4_7_0/spec.py are stale. "
+                "Run `gli specifications sync-enums-v4-7-0` to refresh."
             )
             raise typer.Exit(code=EXIT_ERROR)
-        print_success("Generated schemas are up to date.")
-    elif changed:
-        _SCHEMAS_PATH.write_text(updated)
-        print_success(f"Updated {_SCHEMAS_PATH}.")
+        print_success("Generated enum blocks in spec.py are up to date.")
+        return
+
+    if _write_if_changed(_SPEC_V4_7_0_PATH, updated):
+        print_success(f"Updated {_SPEC_V4_7_0_PATH}.")
     else:
-        print_text("Generated schemas already up to date.")
+        print_text("Generated enum blocks in spec.py already up to date.")
+
+
+# --- Per-version builtin-class model/constant generation -------------------
+#
+# Unlike the enum sync above, this generator makes no assumptions specific to
+# the 4.7.0 API shape: it only relies on the structural fact that a builtin
+# class may have "members" (name/type pairs) and "constants" (name/type/value
+# triples). It should work unmodified against a dump from a different Godot
+# version; `version` is just a label for the output.
+
+_PRIMITIVE_FIELD_TYPES = {"float": "float", "int": "int"}
+
+
+def _modeled_builtin_classes(data: dict) -> dict[str, list[tuple[str, str]]]:
+    """Builtin classes that have `members`, mapped to their (name, type) pairs."""
+    return {
+        cls["name"]: [(m["name"], m["type"]) for m in cls["members"]]
+        for cls in data.get("builtin_classes", [])
+        if cls.get("members")
+    }
+
+
+def _topo_sort_by_dependency(
+    members_by_class: dict[str, list[tuple[str, str]]],
+) -> list[str]:
+    """Order classes so a class referencing another modeled class comes after it.
+
+    Uses Kahn's algorithm with alphabetical tie-breaking so the order is
+    stable regardless of dict/JSON iteration order.
+    """
+    modeled = set(members_by_class)
+    depends_on = {
+        name: sorted({t for _, t in members if t in modeled and t != name})
+        for name, members in members_by_class.items()
+    }
+    remaining = dict(depends_on)
+    ordered: list[str] = []
+    while remaining:
+        ready = sorted(name for name, deps in remaining.items() if not deps)
+        if not ready:
+            cyclic = ", ".join(sorted(remaining))
+            raise ValueError(f"Cyclic dependency among builtin classes: {cyclic}")
+        ordered.extend(ready)
+        for name in ready:
+            del remaining[name]
+        for deps in remaining.values():
+            deps[:] = [d for d in deps if d not in ready]
+    return ordered
+
+
+def _builtin_field_type(member_type: str, version: str, modeled: set[str]) -> str:
+    if member_type in _PRIMITIVE_FIELD_TYPES:
+        return _PRIMITIVE_FIELD_TYPES[member_type]
+    if member_type in modeled:
+        return f"{member_type}{version}"
+    raise ValueError(
+        f"Don't know how to represent member type {member_type!r} as a pydantic "
+        f"field; add it to _PRIMITIVE_FIELD_TYPES in {__name__} if it's a new primitive."
+    )
+
+
+def render_builtin_classes_source(data: dict, version: str) -> str:
+    """Render one pydantic BaseModel per builtin class that has `members`.
+
+    Model names are `{ClassName}{version}` (e.g. 'Transform2Dv4_7_0'); a member
+    whose type is itself a modeled class references that class's generated
+    model rather than a bare string.
+    """
+    members_by_class = _modeled_builtin_classes(data)
+    ordered = _topo_sort_by_dependency(members_by_class)
+    modeled = set(members_by_class)
+
+    parts = [
+        '"""Auto-generated by `gli specifications generate-builtin-classes --version '
+        f'{version}`. Do not edit by hand."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from pydantic import BaseModel",
+        "",
+    ]
+    for class_name in ordered:
+        parts.append("")
+        parts.append(f"class {class_name}{version}(BaseModel):")
+        for member_name, member_type in members_by_class[class_name]:
+            parts.append(
+                f"    {_safe_field_name(member_name)}: {_builtin_field_type(member_type, version, modeled)}"
+            )
+    parts.append("")
+    return "\n".join(parts)
+
+
+def _extract_builtin_constants(data: dict) -> list[tuple[str, str, str, str]]:
+    """(class_name, constant_name, type, raw_value) tuples, sorted for determinism."""
+    triples = [
+        (cls["name"], const["name"], const["type"], const["value"])
+        for cls in data.get("builtin_classes", [])
+        for const in cls.get("constants", [])
+    ]
+    return sorted(triples, key=lambda t: (t[0], t[1]))
+
+
+def render_constants_source(data: dict) -> str:
+    """Render one GodotConstant instance per builtin-class constant.
+
+    Constant values are raw Godot constructor-expression strings (e.g.
+    'Transform2D(1, 0, 0, 1, 0, 0)') and are kept as-is rather than evaluated,
+    since doing so correctly would require implementing Godot's constructors.
+    Python identifiers are `{CLASS_UPPER_SNAKE}_{CONST_NAME}`, disambiguating
+    constant names (e.g. ZERO/IDENTITY) that repeat across classes; BY_GODOT_NAME
+    maps the Godot 'ClassName.CONST_NAME' spelling to the same instance.
+    """
+    triples = _extract_builtin_constants(data)
+
+    identifiers: dict[str, str] = {}
+    for class_name, const_name, _, _ in triples:
+        identifier = f"{_type_name_to_member(class_name)}_{const_name}"
+        godot_name = f"{class_name}.{const_name}"
+        if identifier in identifiers and identifiers[identifier] != godot_name:
+            raise ValueError(
+                f"Constant identifier collision: {identifiers[identifier]!r} and "
+                f"{godot_name!r} both map to {identifier!r}"
+            )
+        identifiers[identifier] = godot_name
+
+    parts = [
+        '"""Auto-generated by `gli specifications generate-builtin-classes`. Do not edit by hand."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from dataclasses import dataclass",
+        "",
+        "",
+        "@dataclass(frozen=True)",
+        "class GodotConstant:",
+        "    class_name: str",
+        "    name: str",
+        "    type: str",
+        "    raw_value: str",
+        "",
+    ]
+    for class_name, const_name, const_type, raw_value in triples:
+        identifier = f"{_type_name_to_member(class_name)}_{const_name}"
+        parts.append("")
+        parts.append(
+            f"{identifier} = GodotConstant(class_name={_quote(class_name)}, "
+            f"name={_quote(const_name)}, type={_quote(const_type)}, "
+            f"raw_value={_quote(raw_value)})"
+        )
+
+    parts.append("")
+    parts.append("")
+    parts.append("BY_GODOT_NAME = {")
+    for class_name, const_name, _, _ in triples:
+        identifier = f"{_type_name_to_member(class_name)}_{const_name}"
+        parts.append(f"    {_quote(f'{class_name}.{const_name}')}: {identifier},")
+    parts.append("}")
+    parts.append("")
+    return "\n".join(parts)
+
+
+@app.command("generate-builtin-classes")
+def generate_builtin_classes(
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version package to generate into, e.g. 'v4_7_0'. Created if missing.",
+        ),
+    ],
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Only check whether the generated files are up to date; don't write.",
+        ),
+    ] = False,
+) -> None:
+    """Generate builtin_classes.py and constants.py for a specifications/<version>/ package.
+
+    Only builtin classes with `members` get a pydantic model (named
+    '{ClassName}{version}'); classes without members (String, Array, RID, ...)
+    aren't referenced as member types in this API version, so they're skipped.
+    This generator has no version-specific assumptions baked in, so it should
+    work unmodified for other Godot versions.
+    """
+    if not _VERSION_RE.match(version):
+        print_error(
+            f"Invalid version {version!r}; expected a format like 'v4_7_0' "
+            "(a valid Python identifier, 'v' + major_minor[_patch])."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    data = json.loads(api_json.read_text())
+    try:
+        models_source = render_builtin_classes_source(data, version)
+        constants_source = render_constants_source(data)
+    except ValueError as exc:
+        print_error(str(exc))
+        raise typer.Exit(code=EXIT_ERROR) from exc
+
+    version_dir = _SPECIFICATIONS_ROOT / version
+    targets = {
+        version_dir / "builtin_classes.py": models_source,
+        version_dir / "constants.py": constants_source,
+    }
+
+    if check:
+        if not version_dir.exists() or any(_is_stale(p, s) for p, s in targets.items()):
+            print_error(
+                f"specifications/{version}/ builtin classes/constants are missing or stale. "
+                "Run `gli specifications generate-builtin-classes` to refresh."
+            )
+            raise typer.Exit(code=EXIT_ERROR)
+        print_success("Generated builtin classes are up to date.")
+        return
+
+    _, created = _ensure_version_package(version)
+    if created:
+        print_success(f"Created {version_dir}.")
+
+    changed_paths = [
+        path for path, source in targets.items() if _write_if_changed(path, source)
+    ]
+    if changed_paths:
+        print_success(f"Updated {', '.join(str(p) for p in changed_paths)}.")
+    else:
+        print_text("Generated builtin classes already up to date.")
+
+
+# --- Per-version engine-class model generation ------------------------------
+#
+# Mirrors the `classes` section of extension_api.json (Node/Resource/etc.),
+# which is structurally different from builtin_classes: it forms a real
+# single-inheritance hierarchy via `inherits`, and fields come from
+# `properties` (each class only lists its own newly-declared properties, not
+# inherited ones -- Python inheritance gives the rest for free). Like
+# generate-builtin-classes, this has no version-specific assumptions baked in.
+
+_CLASS_PRIMITIVE_FIELD_TYPES = {
+    "bool": "bool",
+    "int": "int",
+    "float": "float",
+    "String": "str",
+    "StringName": "str",
+    "NodePath": "str",
+}
+
+
+def _packed_array_element_types(data: dict) -> dict[str, str]:
+    """Element type name for each Packed*Array builtin class.
+
+    Godot's Packed*Array types have no `members` (so generate-builtin-classes
+    doesn't model them as structs), but they're really just flat homogeneous
+    arrays -- e.g. a PackedVector2Array is stored/edited as a flattened list
+    of Vector2 pairs. Each Packed*Array builtin class already declares its
+    element type via `indexing_return_type` (what `arr[i]` returns), so this
+    is derived from the data rather than hardcoded.
+    """
+    return {
+        cls["name"]: cls["indexing_return_type"]
+        for cls in data.get("builtin_classes", [])
+        if cls["name"].startswith("Packed") and "indexing_return_type" in cls
+    }
+
+
+def _class_parents(data: dict) -> dict[str, str | None]:
+    """class_name -> parent class_name (None only for 'Object', the hierarchy root)."""
+    return {cls["name"]: cls.get("inherits") for cls in data.get("classes", [])}
+
+
+def _class_properties(data: dict) -> dict[str, list[tuple[str, str]]]:
+    return {
+        cls["name"]: [(p["name"], p["type"]) for p in cls.get("properties", [])]
+        for cls in data.get("classes", [])
+    }
+
+
+def _topo_sort_by_parent(parent_of: dict[str, str | None]) -> list[str]:
+    """Order classes so a parent is always emitted before its children.
+
+    Stable regardless of dict/JSON iteration order (alphabetical tie-break).
+    """
+    ordered: list[str] = []
+    resolved: set[str] = set()
+    remaining = dict(parent_of)
+    while remaining:
+        ready = sorted(
+            name
+            for name, parent in remaining.items()
+            if parent is None or parent in resolved
+        )
+        if not ready:
+            raise ValueError(f"Cannot resolve class hierarchy for: {sorted(remaining)}")
+        ordered.extend(ready)
+        resolved.update(ready)
+        for name in ready:
+            del remaining[name]
+    return ordered
+
+
+def _class_field_type(
+    prop_type: str,
+    version: str,
+    modeled_builtins: set[str],
+    modeled_classes: set[str],
+    packed_array_elements: dict[str, str],
+) -> str:
+    if prop_type in modeled_builtins or prop_type in modeled_classes:
+        return f"{prop_type}{version}"
+    if prop_type in _CLASS_PRIMITIVE_FIELD_TYPES:
+        return _CLASS_PRIMITIVE_FIELD_TYPES[prop_type]
+    if prop_type in packed_array_elements:
+        element_name = packed_array_elements[prop_type]
+        element_type = _class_field_type(
+            element_name,
+            version,
+            modeled_builtins,
+            modeled_classes,
+            packed_array_elements,
+        )
+        return f"List[{element_type}]"
+    if prop_type.startswith("typedarray::"):
+        # e.g. "typedarray::PackedVector2Array" -> List[List[Vector2...]];
+        # "typedarray::24/17:CompositorEffect" -> element name is after the last ':'.
+        element_name = prop_type.rsplit(":", 1)[-1]
+        element_type = _class_field_type(
+            element_name,
+            version,
+            modeled_builtins,
+            modeled_classes,
+            packed_array_elements,
+        )
+        return f"List[{element_type}]"
+    # Container/opaque/union-hint types (Array, Dictionary, Variant, RID,
+    # "typeddictionary::...", "TypeA,TypeB", etc.) aren't modeled precisely;
+    # `Any` is an honest fallback rather than guessing at a shape.
+    return "Any"
+
+
+def render_classes_source(data: dict, version: str) -> str:
+    """Render one pydantic BaseModel per entry in `classes`, mirroring Godot's inheritance.
+
+    Model names are `{ClassName}{version}`; each model subclasses its parent's
+    generated model (Object's model subclasses BaseModel directly) and declares
+    only its own `properties` as fields -- inherited properties come from the
+    Python base class. Property types that reference a generate-builtin-classes
+    model or another `classes` entry point at that generated model; primitives
+    map to plain Python types; anything else (containers, unions, Variant, ...)
+    falls back to `Any`.
+    """
+    parent_of = _class_parents(data)
+    properties = _class_properties(data)
+    ordered = _topo_sort_by_parent(parent_of)
+
+    modeled_builtins = set(_modeled_builtin_classes(data))
+    modeled_classes = set(parent_of)
+    packed_array_elements = _packed_array_element_types(data)
+
+    field_types: dict[str, list[tuple[str, str]]] = {}
+    for name in ordered:
+        field_types[name] = [
+            (
+                prop_name,
+                _class_field_type(
+                    prop_type,
+                    version,
+                    modeled_builtins,
+                    modeled_classes,
+                    packed_array_elements,
+                ),
+            )
+            for prop_name, prop_type in properties.get(name, [])
+        ]
+
+    all_field_types = [ft for fields in field_types.values() for _, ft in fields]
+    # Derived from the resolved field-type strings (not the raw property
+    # types), since a Packed*Array/typedarray:: property resolves to
+    # 'List[Vector2v4_7_0]' etc. without 'Vector2' ever being its own type.
+    joined_field_types = "\n".join(all_field_types)
+    used_builtins = sorted(
+        b for b in modeled_builtins if f"{b}{version}" in joined_field_types
+    )
+    uses_any = any("Any" in ft for ft in all_field_types)
+    uses_list = any(ft.startswith("List[") for ft in all_field_types)
+
+    parts = [
+        '"""Auto-generated by `gli specifications generate-classes --version '
+        f'{version}`. Do not edit by hand."""',
+        "",
+        "from __future__ import annotations",
+        "",
+    ]
+    typing_imports = [
+        name for name, used in (("Any", uses_any), ("List", uses_list)) if used
+    ]
+    if typing_imports:
+        parts.append(f"from typing import {', '.join(typing_imports)}")
+        parts.append("")
+    parts.append("from pydantic import BaseModel")
+    if used_builtins:
+        parts.append("")
+        parts.append(
+            f"from godotllminteraction.specifications.{version}.builtin_classes import ("
+        )
+        for name in used_builtins:
+            parts.append(f"    {name}{version},")
+        parts.append(")")
+    parts.append("")
+
+    for name in ordered:
+        parent = parent_of[name]
+        base = "BaseModel" if parent is None else f"{parent}{version}"
+        parts.append("")
+        parts.append(f"class {name}{version}({base}):")
+        fields = field_types[name]
+        if not fields:
+            parts.append("    pass")
+        else:
+            for prop_name, field_type in fields:
+                parts.append(f"    {_safe_field_name(prop_name)}: {field_type}")
+    parts.append("")
+    return "\n".join(parts)
+
+
+@app.command("generate-classes")
+def generate_classes(
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version package to generate into, e.g. 'v4_7_0'. Created if missing.",
+        ),
+    ],
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Only check whether the generated file is up to date; don't write.",
+        ),
+    ] = False,
+) -> None:
+    """Generate classes.py for a specifications/<version>/ package.
+
+    One pydantic model per entry in the `classes` section (Node, Resource,
+    CollisionShape2D, ...), mirroring Godot's inheritance hierarchy via Python
+    subclassing. Only `properties` become fields; methods/signals/constants
+    are out of scope for now. References generate-builtin-classes models for
+    builtin-typed properties (Vector2, Color, ...); falls back to `Any` for
+    containers/unions/Variant that aren't modeled precisely.
+    """
+    if not _VERSION_RE.match(version):
+        print_error(
+            f"Invalid version {version!r}; expected a format like 'v4_7_0' "
+            "(a valid Python identifier, 'v' + major_minor[_patch])."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    data = json.loads(api_json.read_text())
+    try:
+        source = render_classes_source(data, version)
+    except ValueError as exc:
+        print_error(str(exc))
+        raise typer.Exit(code=EXIT_ERROR) from exc
+
+    version_dir = _SPECIFICATIONS_ROOT / version
+    classes_path = version_dir / "classes.py"
+
+    if check:
+        if not version_dir.exists() or _is_stale(classes_path, source):
+            print_error(
+                f"specifications/{version}/classes.py is missing or stale. "
+                "Run `gli specifications generate-classes` to refresh."
+            )
+            raise typer.Exit(code=EXIT_ERROR)
+        print_success("Generated classes.py is up to date.")
+        return
+
+    _, created = _ensure_version_package(version)
+    if created:
+        print_success(f"Created {version_dir}.")
+
+    if _write_if_changed(classes_path, source):
+        print_success(f"Updated {classes_path}.")
+    else:
+        print_text("Generated classes.py already up to date.")
+
+
+@app.command("generate-all")
+def generate_all(
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version package to generate into, e.g. 'v4_7_0'. Created if missing.",
+        ),
+    ],
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Only check whether everything is up to date; don't write.",
+        ),
+    ] = False,
+) -> None:
+    """Run every codegen step for a specifications/<version>/ package.
+
+    For v4_7_0 this is: sync-enums-v4-7-0 (spec.py), then generate-builtin-classes,
+    then generate-classes. For any other version, the enum sync step is skipped
+    with a warning, since it's specific to the 4.7.0 API shape.
+    """
+    if version == "v4_7_0":
+        sync_enums_v4_7_0(api_json=api_json, check=check)
+    else:
+        print_warning(
+            f"Skipping enum sync for {version!r}: sync-enums-v4-7-0 is specific to "
+            "the 4.7.0 API shape and has no equivalent for other versions yet."
+        )
+    generate_builtin_classes(version=version, api_json=api_json, check=check)
+    generate_classes(version=version, api_json=api_json, check=check)
+
+    if check:
+        print_success(f"Everything for {version} is up to date.")
+    else:
+        print_success(f"Everything for {version} is generated.")

@@ -5,7 +5,7 @@
 The main work that will be published is on a branch called main.
 An important thing of git + github is that you have **local** branches and "syncronized" **remote branche**.
 You do your work on your machine on your local branch *pippo*.
-I do my work on my machine on my local branch *pippo*. 
+I do my work on my machine on my local branch *pippo*.
 Of course, my changes and your changes will modify locally the branch in different ways.
 This will cause **conflicts** when trying to add our separate changes to the *remote branch*, which is on github.
 How to solve this? Basically the first one that pushes is lucky, the other one has to handle merge conflicts (in the case they both touched the same file).
@@ -35,14 +35,14 @@ Creazione del branch:
 ```bash
 git checkout -b pippo
 ```
-Questo comando crea il branch pippo e ti sposta dal branch in cui ti trovi al branch pippo. Se pronto ad andare! 
+Questo comando crea il branch pippo e ti sposta dal branch in cui ti trovi al branch pippo. Se pronto ad andare!
 
-⚠️⚠️⚠️ATTENZIONE⚠️⚠️⚠️: in questo momento non esiste ancora **origin/pippo**. Verra creato alla prima push request 
+⚠️⚠️⚠️ATTENZIONE⚠️⚠️⚠️: in questo momento non esiste ancora **origin/pippo**. Verra creato alla prima push request
 
 A questo punto farai delle modifiche. Tieni traccia delle tue modifiche con:
 ```bash
 git add <file_da_aggiungere>
-git commit -m "Ma se topolina si fa topolina, paperino si fa paperina, pippo cosa si fa?" 
+git commit -m "Ma se topolina si fa topolina, paperino si fa paperina, pippo cosa si fa?"
 ```
 Il commit è un messaggio che spiega cosa avete fatto. Fate quello che vi pare, non voglio lanciarmi in disquisizioni sull'utilità della cosa. Io personalmente scrivo che cosa ho fatto e non scrivo solo "update".
 Se avete una ui che vi piace tanto usatela, di solito maschera la complessità di git, i don't care.
@@ -51,13 +51,13 @@ In generale, prima e dopo di una sequenza add-commit, vi consiglio di lanciare i
 ```bash
 git status
 ```
-o guardare la UI che state utilizzando. A volte se scrivere male il nome di un file, non viene aggiunto niente, e il commit che fate va a vuoto. 
+o guardare la UI che state utilizzando. A volte se scrivere male il nome di un file, non viene aggiunto niente, e il commit che fate va a vuoto.
 In teoria se succede è scritto tutto nel terminale, ma capita spesso di ignorare i messaggi che vengono detti da questi due comandi.
 Quindi state attenti e controllate che state realmente committando. Io uso una UI e mi è abbastanza semplice capire com'è andato il processo.
 
 Ad un certo punto inizierete a provare panico all'idea che non avete ancora pushato. Per aggiornare il branch remoto su github dovete:
 ```bash
-git push 
+git push
 ```
 La prima volta che pushate da un branch appena creato vi fallirà. **LEGGETE L'OUTPUT!!!!!** vi dice qualcosa del tipo --set-upstream, fate quelloc dice. Il comando creerà un branch remoto su github con nome **origin/{nome-del-branch}** (in questo caso origin/pippo). Probabilmente qualche UI fa tutto automaticamente.
 
@@ -75,7 +75,7 @@ git checkout main
 ```
 2. Pullare da main
 ```bash
-git pull 
+git pull
 ```
 3. Mergiare main nel tuo branch locale *pippo*. Risolvi eventuali conflitti.
 ```bash
