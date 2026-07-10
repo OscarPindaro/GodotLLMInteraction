@@ -1,4 +1,3 @@
-class_name Log
 extends Node
 
 ## Centralized logger with levels, colored output, and per-label filtering.
