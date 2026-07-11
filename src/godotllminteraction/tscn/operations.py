@@ -23,6 +23,7 @@ guarantees a failed batch can never leave a half-edited scene object behind.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from enum import StrEnum
 from typing import Annotated, Literal, Union
 
@@ -135,7 +136,14 @@ class AddNode(BaseModel):
 
 
 class DeleteNode(BaseModel):
-    """Delete a node (and, by default, its whole subtree)."""
+    """Delete a node (and, by default, its whole subtree).
+
+    Also drops [connection]s into the deleted subtree, and any sub_resource
+    that becomes unreferenced as a direct result (transitively — deleting the
+    last node referencing a SpriteFrames also drops the AtlasTextures it
+    alone referenced). Resources that were already orphaned beforehand, for
+    unrelated reasons, are left untouched.
+    """
 
     op: Literal[OpType.DELETE_NODE] = OpType.DELETE_NODE
     path: str = Field(description=_PATH_DESCRIPTION)
@@ -405,9 +413,9 @@ def _validate_new_properties(
     )
 
 
-def _resource_ids_in_use(scene: Scene, kind: str) -> set[str]:
+def _referenced_ids(values: Iterable[GodotValue], kind: str) -> set[str]:
     """Every resource id referenced by a `kind` ('ExtResource'/'SubResource')
-    call anywhere in the scene's values."""
+    call anywhere inside `values` (recursing through arrays/dicts/nested calls)."""
     found: set[str] = set()
 
     def walk(value: GodotValue) -> None:
@@ -427,16 +435,51 @@ def _resource_ids_in_use(scene: Scene, kind: str) -> set[str]:
             case _:
                 pass
 
-    for node in scene.nodes:
-        for value in [*node.attributes.values(), *node.properties.values()]:
-            walk(value)
-    for sub in scene.sub_resources:
-        for value in sub.properties.values():
-            walk(value)
-    for connection in scene.connections:
-        for value in connection.attributes.values():
-            walk(value)
+    for value in values:
+        walk(value)
     return found
+
+
+def _resource_ids_in_use(scene: Scene, kind: str) -> set[str]:
+    """Every resource id referenced by a `kind` call anywhere in the scene."""
+    values: list[GodotValue] = []
+    for node in scene.nodes:
+        values.extend(node.attributes.values())
+        values.extend(node.properties.values())
+    for sub in scene.sub_resources:
+        values.extend(sub.properties.values())
+    for connection in scene.connections:
+        values.extend(connection.attributes.values())
+    return _referenced_ids(values, kind)
+
+
+def _reachable_sub_resource_ids(scene: Scene) -> set[str]:
+    """Sub-resource ids reachable from the node tree, transitively through
+    sub-resources that reference other sub-resources (e.g. a SpriteFrames
+    embedding several AtlasTextures). A sub-resource referenced only by
+    another unreachable sub-resource is itself unreachable."""
+    referenced_by: dict[str, set[str]] = {
+        sub.id: _referenced_ids(sub.properties.values(), "SubResource")
+        for sub in scene.sub_resources
+        if sub.id is not None
+    }
+
+    roots: list[GodotValue] = []
+    for node in scene.nodes:
+        roots.extend(node.attributes.values())
+        roots.extend(node.properties.values())
+    for connection in scene.connections:
+        roots.extend(connection.attributes.values())
+
+    reachable: set[str] = set()
+    stack = list(_referenced_ids(roots, "SubResource"))
+    while stack:
+        resource_id = stack.pop()
+        if resource_id in reachable:
+            continue
+        reachable.add(resource_id)
+        stack.extend(referenced_by.get(resource_id, ()))
+    return reachable
 
 
 def _node_insertion_index(scene: Scene, parent_path: str) -> int:
@@ -571,12 +614,26 @@ def _apply_delete_node(
         )
     removed_paths = {entry.path() for entry in subtree}
     removed_ids = {id(entry) for entry in subtree}
+
+    reachable_before = _reachable_sub_resource_ids(scene)
     scene.nodes = [n for n in scene.nodes if id(n) not in removed_ids]
     scene.connections = [
         c
         for c in scene.connections
         if c.from_path not in removed_paths and c.to_path not in removed_paths
     ]
+
+    # GC sub_resources whose *last* reference was in the deleted subtree.
+    # Resources already orphaned before this op (for unrelated reasons) are
+    # left untouched — this op only cleans up what it caused.
+    reachable_after = _reachable_sub_resource_ids(scene)
+    orphaned = reachable_before - reachable_after
+    if orphaned:
+        scene.sub_resources = [
+            sub for sub in scene.sub_resources if sub.id not in orphaned
+        ]
+        _recompute_load_steps(scene)
+
     return OpResult(op=op.op, changed=True, affected_paths=sorted(removed_paths))
 
 

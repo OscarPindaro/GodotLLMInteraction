@@ -20,6 +20,7 @@ from godotllminteraction.tscn.operations import (
     apply_operations,
 )
 from godotllminteraction.tscn.parser import parse_scene
+from godotllminteraction.tscn.values import GInt, GString
 from godotllminteraction.tscn.writer import dump_scene
 
 _SCENES = Path(__file__).resolve().parents[2] / "tests" / "data" / "scenes"
@@ -201,6 +202,60 @@ class TestDeleteNode:
     def test_delete_root_errors(self):
         with pytest.raises(OperationError, match="root"):
             apply_operations(basic(), [DeleteNode(path=".")])
+
+    def test_delete_gcs_transitively_orphaned_sub_resources(self):
+        # AnimatedSprite2D -> SpriteFrames_walk -> AtlasTexture_frame_{0,1};
+        # deleting the only node referencing SpriteFrames_walk should also
+        # drop the AtlasTextures it alone referenced.
+        scene = load("sprite_frames.tscn")
+        result = apply_operations(scene, [DeleteNode(path="AnimatedSprite2D")])
+        ids = {sub.id for sub in result.scene.sub_resources}
+        assert ids == set()
+        # the ext_resource (a different kind) is untouched
+        assert len(result.scene.ext_resources) == 1
+
+    def test_delete_keeps_sub_resource_still_referenced_by_a_sibling(self):
+        scene = load("sprite_frames.tscn")
+        result = apply_operations(
+            scene,
+            [
+                AddNode(
+                    path="Other",
+                    type="Sprite2D",
+                    properties={"texture": 'SubResource("AtlasTexture_frame_0")'},
+                ),
+                DeleteNode(path="AnimatedSprite2D"),
+            ],
+        )
+        ids = {sub.id for sub in result.scene.sub_resources}
+        # SpriteFrames_walk and AtlasTexture_frame_1 are gone (only reachable
+        # via the deleted node); AtlasTexture_frame_0 survives via "Other".
+        assert ids == {"AtlasTexture_frame_0"}
+
+    def test_delete_leaves_preexisting_orphan_untouched(self):
+        scene = load("sprite_frames.tscn")
+        # A resource nothing in the scene references, present before any op.
+        first = scene.sub_resources[0]
+        orphan = first.model_copy(
+            update={
+                "attributes": {
+                    **first.attributes,
+                    "id": GString(value="PreexistingOrphan"),
+                }
+            }
+        )
+        scene.sub_resources.append(orphan)
+        result = apply_operations(scene, [DeleteNode(path="CollisionPolygon2D")])
+        ids = {sub.id for sub in result.scene.sub_resources}
+        assert "PreexistingOrphan" in ids
+
+    def test_delete_gc_recomputes_load_steps_when_present(self):
+        scene = load("sprite_frames.tscn")
+        scene.header.attributes["load_steps"] = GInt(value=5)
+        result = apply_operations(scene, [DeleteNode(path="AnimatedSprite2D")])
+        text = dump_scene(result.scene)
+        # 1 (base) + 1 ext_resource + 0 sub_resources
+        assert "load_steps=2" in text
 
 
 class TestUpdateProperties:
