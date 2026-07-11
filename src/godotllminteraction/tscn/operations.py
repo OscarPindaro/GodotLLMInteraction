@@ -339,14 +339,6 @@ def _hash_suffix(*parts: str, length: int = 5) -> str:
     return "".join(chars)
 
 
-def _taken_unique_ids(scene: Scene) -> set[int]:
-    return {
-        v.value
-        for node in scene.nodes
-        if isinstance(v := node.attributes.get("unique_id"), GInt)
-    }
-
-
 def _recompute_load_steps(scene: Scene) -> None:
     # load_steps is deprecated (ignored by Godot when present); it is kept
     # only if the file already had it, and never added to files without it.
@@ -504,14 +496,6 @@ def _apply_add_node(
                 raise OperationError(
                     f"node {path!r} already exists with a different instance"
                 )
-        if op.unique_id is not None:
-            current_uid = existing.attributes.get("unique_id")
-            if not (
-                isinstance(current_uid, GInt) and current_uid.value == op.unique_id
-            ):
-                raise OperationError(
-                    f"node {path!r} already exists with a different unique_id"
-                )
         for key, value in properties.items():
             current = existing.properties.get(key)
             if current is None or not values_equal(current, value):
@@ -538,7 +522,8 @@ def _apply_add_node(
         attributes = {"name": GString(value=name)}
 
     # Attribute order mirrors what the Godot editor writes:
-    # name, type?, parent?, index?, groups?, instance?, unique_id?
+    # name, type?, parent?, index?, groups?, instance?
+    # (unique_id is never written here — see the class docstring above)
     if op.type is not None:
         attributes["type"] = GString(value=op.type)
     if scene.nodes:
@@ -563,13 +548,6 @@ def _apply_add_node(
             _validate_new_properties(scene, op.type, properties, path, provider)
         )
     _check_strict(report, strict)
-
-    if op.unique_id is not None:
-        if op.unique_id in _taken_unique_ids(scene):
-            raise OperationError(
-                f"unique_id {op.unique_id} is already used by another node"
-            )
-        attributes["unique_id"] = GInt(value=op.unique_id)
 
     node = NodeEntry(attributes=attributes, properties=properties)
     scene.nodes.insert(_node_insertion_index(scene, parent or "."), node)

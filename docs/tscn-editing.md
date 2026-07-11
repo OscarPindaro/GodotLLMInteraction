@@ -78,9 +78,10 @@ model (`operations.py`) — that is the reference for exact shapes.
   Godot-shaped id, or pick readable names (`id: tile_atlas`,
   `id: player_shape`) — this is the right place for human/LLM-friendly
   naming.
-- **Node `unique_id`** (integer node-heading attribute, Godot 4.6+): leave it
-  alone. The editor assigns one on the next save; the tool preserves existing
-  ones and only writes one if you explicitly pass `unique_id:` on `add_node`.
+- **Node `unique_id`** (integer node-heading attribute, Godot 4.6+): entirely
+  Godot's concern. There is no way to set it through an operation — the tool
+  never assigns one for a new node, and preserves whatever's already on a
+  node it didn't add. The editor assigns ids on save.
 - **`uid` (`uid://...`)**: never written by the tool. These belong to Godot's
   asset database (.uid / .import metadata); the editor fills them in.
 

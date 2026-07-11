@@ -120,30 +120,21 @@ class TestAddNode:
                 ],
             )
 
-    def test_unique_id_not_assigned_by_default(self):
-        # Godot assigns unique_ids when the scene is next saved in the editor;
-        # the tool stays out of it unless one is explicitly requested.
+    def test_unique_id_never_assigned_and_existing_ones_preserved(self):
+        # unique_id is Godot's own bookkeeping (assigned by the editor on
+        # save); the tool never writes one for new nodes and never touches
+        # existing ones on nodes it didn't add.
         scene = load("sprite_frames.tscn")  # existing nodes DO have unique_ids
         result = apply_operations(scene, [AddNode(path="Extra", type="Node2D")])
         assert "unique_id" not in result.scene.node("Extra").attributes
-
-    def test_explicit_unique_id(self):
-        result = apply_operations(
-            basic(), [AddNode(path="X", type="Node2D", unique_id=42)]
+        assert "unique_id" in result.scene.node("AnimatedSprite2D").attributes
+        assert (
+            result.scene.node("AnimatedSprite2D").attributes
+            == scene.node("AnimatedSprite2D").attributes
         )
-        assert "unique_id=42" in dump_scene(result.scene)
-        # re-adding with the same unique_id is a no-op
-        again = apply_operations(
-            result.scene, [AddNode(path="X", type="Node2D", unique_id=42)]
-        )
-        assert not again.results[0].changed
 
-    def test_explicit_unique_id_collision_errors(self):
-        scene = load("sprite_frames.tscn")
-        with pytest.raises(OperationError, match="already used"):
-            apply_operations(
-                scene, [AddNode(path="Extra", type="Node2D", unique_id=725077531)]
-            )
+    def test_add_node_has_no_unique_id_field(self):
+        assert "unique_id" not in AddNode.model_fields
 
     def test_add_instanced_scene_node(self):
         result = apply_operations(
