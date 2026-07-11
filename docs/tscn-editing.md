@@ -16,10 +16,46 @@ gli tscn validate res://scenes/door.tscn [--project DIR] [--godot PATH] [--json]
   operation fails, nothing is written.
 - `tree` prints the node tree; `resources` adds each node's resource
   references, `properties` adds every set property.
-- `validate` shells out to Godot (`--headless --check-only`). The executable
-  is found via `--godot`, then `GODOT_BINARY`, then PATH, then common install
-  locations.
+- `validate` shells out to Godot (`--headless --check-only`). Accepts a
+  res:// path, a normal filesystem path (in or out of the project — a path
+  outside is handed to Godot as an absolute path with no local validation of
+  its own; Godot decides whether it can check it), or `project.godot` for a
+  full import check. The executable is found via `--godot`, then
+  `GODOT_BINARY`, then PATH, then common install locations.
 - `--json` on any command prints a machine-readable result on stdout.
+
+## Granular commands
+
+One direct command per operation — the same core as `apply`, for a single
+edit without writing a YAML file:
+
+```bash
+gli tscn add-node scene.tscn Door/Hinge --type Sprite2D \
+    --property 'texture=ExtResource("1_sheet")' --property 'position=Vector2(8, 0)' \
+    --group enemies --index 0
+gli tscn add-node scene.tscn Prop --instance 'ExtResource("1_scene")'
+gli tscn delete-node scene.tscn Door/Hinge [--no-recursive]
+gli tscn update-properties scene.tscn Door/Hinge --property rotation=1.5 --remove position
+gli tscn rename-node scene.tscn Door/Hinge NewName
+gli tscn move-node scene.tscn Door/Hinge NewParent [--index N]
+gli tscn attach-script scene.tscn Door res://door.gd
+gli tscn detach-script scene.tscn Door
+gli tscn add-ext-resource scene.tscn Texture2D res://asset/tilemap.png [--id sheet]
+gli tscn create-sub-resource scene.tscn RectangleShape2D --property 'size=Vector2(16, 16)' [--id shape]
+gli tscn connect-signal scene.tscn --from Door/Area --to Door --signal body_entered --method _on_body_entered [--flags N] [--binds '[1]']
+gli tscn disconnect-signal scene.tscn --from Door/Area --to Door --signal body_entered --method _on_body_entered
+```
+
+Every command takes `--output PATH` (default in-place), `--dry-run`,
+`--strict/--no-strict`, and `--json`, and shares `apply`'s exit codes and
+report/diff output. `--property key=value` is repeatable; the value is
+Godot literal syntax, quoted so the shell doesn't split it (`'position=Vector2(8, 0)'`).
+Unlike the YAML frontend, granular commands don't have the `ref:` /
+`{ext_resource: ...}` indirection — resource ids referenced in a property
+value must already exist in the scene (spell them out directly, e.g.
+`ExtResource("1_sheet")`). There is no stdin/streaming mode — for a batch of
+edits, especially ones that create and then reference a new resource in the
+same breath, use `apply` with a YAML file instead of chaining granular calls.
 
 ## Operations file
 

@@ -17,6 +17,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from godotllminteraction.tscn.exceptions import TscnError
+from godotllminteraction.tscn.paths import ResPath
 
 
 class GodotNotFoundError(TscnError):
@@ -95,6 +96,36 @@ class GodotCheckResult(BaseModel):
     output: str
 
 
+def _as_res_target(target: str, project_dir: Path) -> str:
+    """Normalize `target` to whatever Godot's CLI scene argument expects.
+
+    Accepts a res:// path already, or a normal filesystem path — relative
+    (to the project directory or the current directory) or absolute. A path
+    inside the project becomes a res:// path; a path outside it (or one that
+    doesn't resolve to anything, e.g. a typo) is handed to Godot verbatim as
+    an absolute filesystem path — it's not this function's job to decide
+    whether that succeeds, only to read what was given as faithfully as
+    possible.
+    """
+    if target == "project.godot" or target.startswith("res://"):
+        return target
+    candidate = Path(target)
+    if candidate.is_absolute():
+        candidates = [candidate]
+    else:
+        candidates = [project_dir / candidate, Path(".") / candidate]
+    for resolved in candidates:
+        if resolved.exists():
+            try:
+                return str(ResPath.from_filesystem(resolved, project_dir))
+            except ValueError:
+                return str(resolved.resolve())
+    # Doesn't exist on disk anywhere we looked (a typo, or a scene the
+    # caller is about to write) — resolve relative to the project dir, the
+    # most natural base, and let Godot report whatever error it finds.
+    return str(candidates[0].resolve())
+
+
 def check_scene(
     target: str,
     *,
@@ -103,10 +134,11 @@ def check_scene(
     timeout: float = 120,
 ) -> GodotCheckResult:
     """Run Godot's own validation on a scene (or `project.godot` for a full
-    import check). `target` is a res:// path or a path relative to the
-    project directory."""
+    import check). `target` may be a res:// path, 'project.godot', or a
+    normal filesystem path to a file inside the project."""
     executable = find_godot(godot)
-    if str(target).endswith("project.godot"):
+    target = _as_res_target(target, project_dir)
+    if target == "project.godot":
         command = [
             executable,
             "--headless",
