@@ -40,7 +40,7 @@ animations = [{
 
 [node name="Door" type="Node2D" unique_id=725077531]
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1685869789]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=2085825675]
 sprite_frames = SubResource("SpriteFrames_door")
 autoplay = "default"
 

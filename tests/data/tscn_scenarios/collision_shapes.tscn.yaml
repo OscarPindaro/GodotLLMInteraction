@@ -1,0 +1,77 @@
+description: A body with every 2D collision shape type, plus a collision polygon.
+create:
+  root_name: ShapeZoo
+  root_type: StaticBody2D
+operations:
+  - op: create_sub_resource
+    type: RectangleShape2D
+    ref: rect
+    properties: { size: "Vector2(32, 16)" }
+  - op: create_sub_resource
+    type: CircleShape2D
+    ref: circle
+    properties: { radius: "12.5" }
+  - op: create_sub_resource
+    type: CapsuleShape2D
+    ref: capsule
+    properties: { radius: "6.0", height: "24.0" }
+  - op: create_sub_resource
+    type: SegmentShape2D
+    ref: segment
+    properties: { a: "Vector2(-10, 0)", b: "Vector2(10, 0)" }
+  - op: create_sub_resource
+    type: WorldBoundaryShape2D
+    ref: boundary
+  - op: create_sub_resource
+    type: SeparationRayShape2D
+    ref: ray
+    properties: { length: "30.0" }
+  - op: create_sub_resource
+    type: ConvexPolygonShape2D
+    ref: convex
+    properties: { points: "PackedVector2Array(0, 0, 16, 0, 8, 12)" }
+  - op: create_sub_resource
+    type: ConcavePolygonShape2D
+    ref: concave
+    properties: { segments: "PackedVector2Array(0, 0, 16, 0, 16, 0, 8, 12)" }
+  - op: add_node
+    path: Rect
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: rect } }
+  - op: add_node
+    path: Circle
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: circle } }
+  - op: add_node
+    path: Capsule
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: capsule } }
+  - op: add_node
+    path: Segment
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: segment } }
+  - op: add_node
+    path: Boundary
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: boundary } }
+  - op: add_node
+    path: Ray
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: ray } }
+  - op: add_node
+    path: Convex
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: convex } }
+  - op: add_node
+    path: Concave
+    type: CollisionShape2D
+    properties: { shape: { sub_resource: concave } }
+  - op: add_node
+    path: Polygon
+    type: CollisionPolygon2D
+    properties: { polygon: "PackedVector2Array(0, 0, 20, 0, 10, 15)" }
+expect:
+  node_exists: [Rect, Circle, Capsule, Segment, Boundary, Ray, Convex, Concave, Polygon]
+  contains:
+    - 'radius = 12.5'
+    - 'segments = PackedVector2Array(0, 0, 16, 0, 16, 0, 8, 12)'

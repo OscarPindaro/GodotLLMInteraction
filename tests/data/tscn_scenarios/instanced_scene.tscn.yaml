@@ -1,0 +1,22 @@
+description: Instance another scene twice and override a property on one instance.
+initial: minimal.tscn
+operations:
+  - op: add_ext_resource
+    type: PackedScene
+    path: res://tests/data/scenes/sprite_frames.tscn
+    ref: actor_scene
+  - op: add_node
+    path: ActorA
+    instance: { ext_resource: actor_scene }
+  - op: add_node
+    path: ActorB
+    instance: { ext_resource: actor_scene }
+  - op: update_properties
+    path: ActorB
+    properties:
+      position: "Vector2(64, 0)"
+      scale: "Vector2(2, 2)"
+expect:
+  node_exists: [ActorA, ActorB]
+  contains:
+    - 'position = Vector2(64, 0)'

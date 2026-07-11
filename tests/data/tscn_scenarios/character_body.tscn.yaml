@@ -1,0 +1,30 @@
+description: CharacterBody2D with a textured sprite and a rectangle collision shape.
+create:
+  root_name: Player
+  root_type: CharacterBody2D
+operations:
+  - op: add_ext_resource
+    type: Texture2D
+    path: res://tests/data/assets/atlas.png
+    ref: sheet
+  - op: add_node
+    path: Sprite
+    type: Sprite2D
+    properties:
+      texture: { ext_resource: sheet }
+      position: "Vector2(0, -8)"
+  - op: create_sub_resource
+    type: RectangleShape2D
+    ref: body_shape
+    properties:
+      size: "Vector2(14, 20)"
+  - op: add_node
+    path: Shape
+    type: CollisionShape2D
+    properties:
+      shape: { sub_resource: body_shape }
+expect:
+  node_exists: [Sprite, Shape]
+  contains:
+    - '[node name="Player" type="CharacterBody2D"]'
+    - 'size = Vector2(14, 20)'

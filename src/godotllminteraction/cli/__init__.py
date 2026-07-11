@@ -15,6 +15,7 @@ from godotllminteraction.cli._common import (
     _version_callback,
     print_error,
     print_warning,
+    set_dry_run,
     set_verbosity,
 )
 
@@ -65,8 +66,7 @@ def main(
     else:
         set_verbosity(Verbosity.NORMAL)
 
-    if dry_run:
-        print_warning("--dry-run is currently ignored for these commands.")
+    set_dry_run(dry_run)
 
 
 def cli() -> None:

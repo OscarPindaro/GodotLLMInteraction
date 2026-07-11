@@ -1,0 +1,34 @@
+[gd_scene format=3 uid="uid://c2test0sprites"]
+
+[ext_resource type="Texture2D" path="res://tests/data/assets/atlas.png" id="1_atlas"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_0"]
+atlas = ExtResource("1_atlas")
+region = Rect2(0, 0, 16, 16)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_1"]
+atlas = ExtResource("1_atlas")
+region = Rect2(16, 0, 16, 16)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_walk"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_1")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="Actor" type="Node2D" unique_id=725077531]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1685869789]
+sprite_frames = SubResource("SpriteFrames_walk")
+autoplay = "default"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=2136365318]
+polygon = PackedVector2Array(10, 0, 0, 20, 70, 30)

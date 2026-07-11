@@ -1,0 +1,8 @@
+description: Adding a node with a class that does not exist must fail.
+initial: minimal.tscn
+operations:
+  - op: add_node
+    path: Broken
+    type: Spritee2D
+expect:
+  error: "unknown class 'Spritee2D'"

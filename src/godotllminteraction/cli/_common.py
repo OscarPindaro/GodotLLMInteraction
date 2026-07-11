@@ -36,6 +36,18 @@ def set_verbosity(value: Verbosity) -> None:
     _verbosity = value
 
 
+_dry_run: bool = False
+
+
+def set_dry_run(value: bool) -> None:
+    global _dry_run
+    _dry_run = value
+
+
+def is_dry_run() -> bool:
+    return _dry_run
+
+
 def print_success(msg: str, *, bold: bool = False) -> None:
     if _should_print(Verbosity.NORMAL):
         style = "bold green" if bold else "green"

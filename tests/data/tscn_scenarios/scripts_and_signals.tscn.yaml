@@ -1,0 +1,27 @@
+description: Rename a node, attach a script, and rewire its signals.
+initial: connections.tscn
+operations:
+  - op: attach_script
+    path: "."
+    script_path: res://door.gd
+  - op: disconnect_signal
+    from: Timer
+    to: Button
+    signal: timeout
+    method: queue_free
+  - op: rename_node
+    path: Button
+    new_name: Trigger
+  - op: connect_signal
+    from: Trigger
+    to: "."
+    signal: area_entered
+    method: _on_area_entered
+expect:
+  node_exists: [Trigger, Timer]
+  contains:
+    - '[connection signal="area_entered" from="Trigger" to="." method="_on_area_entered"]'
+    - 'script = ExtResource('
+  not_contains:
+    - 'method="queue_free"'
+    - 'from="Button"'

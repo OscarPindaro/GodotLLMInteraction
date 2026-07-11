@@ -1,0 +1,29 @@
+description: AnimationPlayer with a library containing one animation track.
+create:
+  root_name: Door
+  root_type: Node2D
+operations:
+  - op: create_sub_resource
+    type: Animation
+    id: Animation_open
+    properties:
+      length: 0.5
+  - op: create_sub_resource
+    type: AnimationLibrary
+    id: AnimationLibrary_main
+    properties:
+      _data: '{
+"open": SubResource("Animation_open")
+}'
+  - op: add_node
+    path: Anim
+    type: AnimationPlayer
+    properties:
+      libraries: '{
+"": SubResource("AnimationLibrary_main")
+}'
+expect:
+  node_exists: [Anim]
+  contains:
+    - '[sub_resource type="Animation" id="Animation_open"]'
+    - '"open": SubResource("Animation_open")'

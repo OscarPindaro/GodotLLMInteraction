@@ -1,0 +1,21 @@
+description: An audio player wired to a stream file, autoplaying.
+create:
+  root_name: Jukebox
+  root_type: Node2D
+operations:
+  - op: add_ext_resource
+    type: AudioStream
+    path: res://audio/theme.ogg
+    ref: theme
+  - op: add_node
+    path: Music
+    type: AudioStreamPlayer2D
+    properties:
+      stream: { ext_resource: theme }
+      autoplay: true
+      volume_db: -6.0
+expect:
+  node_exists: [Music]
+  contains:
+    - 'autoplay = true'
+    - 'volume_db = -6.0'
