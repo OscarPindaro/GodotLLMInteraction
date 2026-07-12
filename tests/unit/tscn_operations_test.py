@@ -23,6 +23,8 @@ from godotllminteraction.tscn.parser import parse_scene
 from godotllminteraction.tscn.values import GInt, GString
 from godotllminteraction.tscn.writer import dump_scene
 
+pytestmark = [pytest.mark.tscn]
+
 _SCENES = Path(__file__).resolve().parents[2] / "tests" / "data" / "scenes"
 
 

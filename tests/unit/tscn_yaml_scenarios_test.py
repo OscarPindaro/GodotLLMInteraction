@@ -29,6 +29,8 @@ from godotllminteraction.tscn import (
     validate_scene,
 )
 
+pytestmark = [pytest.mark.tscn]
+
 _DATA = Path(__file__).resolve().parents[2] / "tests" / "data"
 _SCENARIOS = sorted((_DATA / "tscn_scenarios").glob("*.yaml"))
 

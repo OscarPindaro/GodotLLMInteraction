@@ -6,6 +6,7 @@ from typing import Annotated, Optional
 import typer
 
 from godotllminteraction.cli import image, specifications, tscn
+from godotllminteraction.cli import kb as kb_cli
 from godotllminteraction.cli._common import (
     EXIT_ERROR,
     EXIT_INTERRUPTED,
@@ -32,6 +33,49 @@ app.add_typer(
     name="specifications",
     help="Codegen utilities for versioned Godot API specifications.",
 )
+app.add_typer(kb_cli.app, name="kb", help="Per-project question-linked knowledge base.")
+
+
+@app.command()
+def mcp() -> None:
+    """Start the MCP stdio server."""
+    import asyncio
+
+    from godotllminteraction.mcp import serve
+
+    asyncio.run(serve())
+
+
+@app.command()
+def install(
+    agent: Annotated[
+        list[str] | None,
+        typer.Option("--agent", help="Agent(s) to configure non-interactively."),
+    ] = None,
+    yes: Annotated[
+        bool, typer.Option("-y", "--yes", help="Skip confirmation.")
+    ] = False,
+) -> None:
+    """Configure gli across coding agents."""
+    from godotllminteraction.installer import run
+
+    run("install", agent_ids=agent, yes=yes)
+
+
+@app.command()
+def uninstall(
+    agent: Annotated[
+        list[str] | None,
+        typer.Option("--agent", help="Agent(s) to remove."),
+    ] = None,
+    yes: Annotated[
+        bool, typer.Option("-y", "--yes", help="Skip confirmation.")
+    ] = False,
+) -> None:
+    """Remove gli configuration from coding agents."""
+    from godotllminteraction.installer import run
+
+    run("uninstall", agent_ids=agent, yes=yes)
 
 
 @app.callback()

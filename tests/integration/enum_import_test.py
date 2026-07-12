@@ -16,6 +16,8 @@ from godotllminteraction.specifications.schema_diff import (
     compute_schema_diff,
 )
 
+pytestmark = [pytest.mark.specs]
+
 DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "extension_api"
 
 

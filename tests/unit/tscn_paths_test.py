@@ -6,6 +6,8 @@ import pytest
 
 from godotllminteraction.tscn.paths import ResPath, ScenePath
 
+pytestmark = [pytest.mark.tscn]
+
 
 class TestScenePath:
     def test_root_spellings(self):

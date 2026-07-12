@@ -7,6 +7,8 @@ from godotllminteraction.cli.specifications import (
     render_constants_source,
 )
 
+pytestmark = [pytest.mark.specs]
+
 
 def _fake_data(builtin_classes: list[dict]) -> dict:
     return {"builtin_classes": builtin_classes}

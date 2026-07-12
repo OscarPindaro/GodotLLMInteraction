@@ -7,15 +7,17 @@ import typer
 
 from godotllminteraction.cli._common import (
     EXIT_USAGE,
+    make_table,
+    print_error,
+    print_info,
+    print_text,
+)
+from godotllminteraction.image import (
     ImageError,
     TileError,
     compute_tile_grid,
     compute_tile_region,
     get_image_info,
-    make_table,
-    print_error,
-    print_info,
-    print_text,
 )
 
 app = typer.Typer(help="Tilemap and image utilities.")
@@ -38,7 +40,7 @@ def info(
     table = make_table(
         "Image Info",
         ["Property", "Value"],
-        [[k, v] for k, v in result.items()],
+        [[k, str(v)] for k, v in result.model_dump().items()],
     )
     print_text(table)
 
@@ -69,7 +71,7 @@ def tiles(
     table = make_table(
         "Tile Grid",
         ["Property", "Value"],
-        [[k, str(v)] for k, v in result.items()],
+        [[k, str(v)] for k, v in result.model_dump().items()],
     )
     print_text(table)
 
@@ -105,10 +107,8 @@ def region(
     table = make_table(
         f"Tile Region (col={col}, row={row})",
         ["Property", "Value"],
-        [[k, str(v)] for k, v in result.items()],
+        [[k, str(v)] for k, v in result.model_dump().items()],
     )
     print_text(table)
 
-    print_info(
-        f"Godot Rect2: Rect2({result['x']}, {result['y']}, {result['width']}, {result['height']})"
-    )
+    print_info(f"Godot Rect2: {result.godot_rect2}")

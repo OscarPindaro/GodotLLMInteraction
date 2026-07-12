@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from godotllminteraction.tscn.godot_check import _as_res_target
+
+pytestmark = [pytest.mark.tscn]
 
 
 class TestAsResTarget:

@@ -17,6 +17,8 @@ import pytest
 
 from godotllminteraction.tscn import load_scene
 
+pytestmark = [pytest.mark.tscn]
+
 SCENES_DIR = Path(__file__).resolve().parents[1] / "data" / "scenes" / "open_rpg_4_6_0"
 
 # (filename, expected_root_node_type, expected_ext_resource_count, expected_node_count)

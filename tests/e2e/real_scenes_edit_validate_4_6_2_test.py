@@ -21,6 +21,8 @@ from tests.e2e._helpers import (
     validate_both,
 )
 
+pytestmark = [pytest.mark.tscn]
+
 VERSION = "4.6.2"
 SCENES_DIR = Path(__file__).resolve().parents[1] / "data" / "scenes" / "open_rpg_4_6_2"
 BAD_SCENES_DIR = Path(__file__).resolve().parents[1] / "data" / "scenes" / "bad_4_6_2"

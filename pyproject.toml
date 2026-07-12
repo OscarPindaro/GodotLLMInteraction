@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "numpy>=2.5.1",
     "pillow>=12.3.0",
     "pre-commit>=4.6.0",
     "pydantic>=2.13.4",
@@ -15,6 +16,10 @@ dependencies = [
     "rich>=15.0.0",
     "typer>=0.26.8",
 ]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0,<2.0"]
+kb = ["model2vec>=0.4.0", "numpy>=1.24.0"]
 
 [project.scripts]
 gli = "godotllminteraction.cli:cli"
@@ -26,4 +31,18 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "unit: unit tests (no external dependencies, mocked or pure logic)",
+    "integration: integration tests (real models, real file I/O, no CLI)",
+    "e2e: end-to-end tests (real CLI invocations via CliRunner)",
+    "cli: tests that exercise the typer CLI",
+    "mcp: tests that exercise the MCP server tools",
+    "kb: tests for the knowledge base module",
+    "installer: tests for the agent installer module",
+    "image: tests for the image/tilemap utilities",
+    "tscn: tests for the tscn scene editing module",
+    "specs: tests for the Godot API specifications module",
 ]

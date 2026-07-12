@@ -12,6 +12,8 @@ from godotllminteraction.tscn.validation import (
     validate_scene,
 )
 
+pytestmark = [pytest.mark.tscn]
+
 _SCENES = Path(__file__).resolve().parents[2] / "tests" / "data" / "scenes"
 
 

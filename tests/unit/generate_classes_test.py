@@ -4,6 +4,8 @@ import pytest
 
 from godotllminteraction.cli.specifications import render_classes_source
 
+pytestmark = [pytest.mark.specs]
+
 
 def _fake_data(builtin_classes=None, classes=None) -> dict:
     return {"builtin_classes": builtin_classes or [], "classes": classes or []}

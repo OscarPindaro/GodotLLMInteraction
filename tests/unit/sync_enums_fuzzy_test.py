@@ -10,6 +10,8 @@ import pytest
 
 from godotllminteraction.cli.specifications import render_spec_source
 
+pytestmark = [pytest.mark.specs]
+
 # Known valid values for each enum domain
 VALID_TYPE_NAMES = [
     "AABB",

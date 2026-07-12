@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 
 from godotllminteraction.specifications.schema_diff import (
     EXPECTED_SECTIONS,
@@ -11,6 +12,8 @@ from godotllminteraction.specifications.schema_diff import (
     compute_schema_diff,
     extract_enum_values,
 )
+
+pytestmark = [pytest.mark.specs]
 
 _ENUM_NAMES = {
     "GodotTypeNameEnum",

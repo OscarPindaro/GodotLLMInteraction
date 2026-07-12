@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from godotllminteraction.cli import app
@@ -15,6 +16,8 @@ from godotllminteraction.cli.specifications import (
 )
 
 runner = CliRunner()
+
+pytestmark = [pytest.mark.specs, pytest.mark.cli]
 
 
 class TestVersionToPkg:

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from godotllminteraction.cli.specifications import render_signals_source
+
+pytestmark = [pytest.mark.specs]
 
 
 def _fake_data(classes=None) -> dict:
