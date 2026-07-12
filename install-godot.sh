@@ -116,6 +116,7 @@ Commands:
   switch [version]        Switch the active Godot version (interactive if no arg)
   register <binary> <name> [icon]  Register a compiled Godot binary
   sanitize [--remove] [--repair]  Check for orphaned entries
+  self-register           Install this script as 'godot-install' in PATH
   <binary> <name> [icon]  Manually install a Godot binary (legacy mode)
 
 Options:
@@ -677,6 +678,57 @@ EOF2
     print_success "Cleanup complete." true
 }
 
+cmd_self_register() {
+    local cmd_name="godotctl"
+    local opt_dir="/opt/godotctl"
+    local dest="$opt_dir/$cmd_name"
+    local symlink="$BIN_DIR/$cmd_name"
+    local script_path="$SCRIPT_DIR/install-godot.sh"
+
+    ensure_opt_dir
+    if [[ ! -d "$opt_dir" ]]; then
+        sudo mkdir -p "$opt_dir"
+        sudo chown "$USER" "$opt_dir"
+    fi
+    mkdir -p "$opt_dir" "$BIN_DIR"
+
+    if [[ -L "$symlink" || -e "$symlink" ]]; then
+        rm "$symlink"
+    fi
+
+    cp "$script_path" "$dest"
+    chmod +x "$dest"
+
+    ln -s "$dest" "$symlink"
+
+    print_success "Registered '$cmd_name' at $symlink" true
+    print_detail "  Script:  $dest"
+    print_detail "  Symlink: $symlink -> $dest"
+
+    # Check PATH
+    case ":$PATH:" in
+        *":$BIN_DIR:"*)
+            ;;
+        *)
+            print_warning "  $BIN_DIR is not in your PATH."
+            print_warning "  Add this to your ~/.bashrc:"
+            print_warning "    export PATH=\"$BIN_DIR:\$PATH\""
+            ;;
+    esac
+
+    # Copy icon so the script works independently of the repo
+    if [[ -f "$SCRIPT_DIR/icon.svg" ]]; then
+        local data_dir="$HOME/.local/share/godotctl"
+        mkdir -p "$data_dir"
+        cp "$SCRIPT_DIR/icon.svg" "$data_dir/icon.svg"
+        print_detail "  Icon:    $data_dir/icon.svg"
+    fi
+
+    print_detail ""
+    print_detail "  You can now run: $cmd_name list"
+    print_detail "  Or from anywhere: $cmd_name install -y"
+}
+
 # --- Main ------------------------------------------------------------------
 
 main() {
@@ -714,6 +766,9 @@ main() {
         sanitize)
             shift
             cmd_sanitize "$@"
+            ;;
+        self-register)
+            cmd_self_register
             ;;
         -h|--help|help)
             usage
