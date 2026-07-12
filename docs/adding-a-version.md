@@ -271,6 +271,41 @@ subsequent steps. Original fixtures are never modified.
 Add a `test_stub.gd` file to the fixture dir (`extends Node`) for attach-script
 tests. Godot generates the `.uid` file on import.
 
+### `exported_props.gd` and `exported_props.tscn`
+
+Add an `exported_props.gd` script and `exported_props.tscn` scene to the fixture
+dir for `TestExportedPropertiesGodotCheck`. The script defines `@export`
+properties of various types (float, int, bool, String, Color, Vector2); the
+scene overrides some non-default values. This verifies that CLI property
+updates on exported variables produce Godot-valid scenes.
+
+```gdscript
+# exported_props.gd
+extends Node2D
+class_name ExportTest
+
+@export var max_speed: float = 200.0
+@export var damage: int = 10
+@export var is_active: bool = true
+@export var label: String = "Enemy"
+@export var tint: Color = Color(1, 0, 0, 1)
+@export var spawn_position: Vector2 = Vector2(0, 0)
+```
+
+The scene stores only non-default values (max_speed=350, damage=25,
+is_active=false). Properties matching defaults are not in the .tscn file.
+
+### `test_theme.tres`
+
+Add a `test_theme.tres` file to the fixture dir for `TestComplexChangesGodotCheck`
+(ext-resource swap test). It's a minimal empty Theme resource:
+
+```
+[gd_resource type="Theme" format=3]
+
+[resource]
+```
+
 ### Bad-scenes sub-project
 
 Create `tests/data/scenes/bad_vX_Y_Z/` with `project.godot` and 4 intentionally
@@ -310,6 +345,8 @@ CameraAnchor). Always check the actual scene structure and update paths accordin
 - [ ] `real_scenes_parse_vX_Y_Z_test.py` created
 - [ ] `real_scenes_godot_check_vX_Y_Z_test.py` created
 - [ ] `test_stub.gd` added to the fixture dir
+- [ ] `exported_props.gd` and `exported_props.tscn` added to the fixture dir
+- [ ] `test_theme.tres` added to the fixture dir
 - [ ] `real_scenes_edit_validate_vX_Y_Z_test.py` created
 - [ ] `bad_vX_Y_Z/` sub-project created with 4 bad scenes
 - [ ] Full test suite passes
