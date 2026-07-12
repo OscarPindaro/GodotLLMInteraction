@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import keyword
 import re
@@ -16,6 +17,13 @@ from godotllminteraction.cli._common import (
     print_success,
     print_text,
     print_warning,
+)
+from godotllminteraction.paths import GODOT_VERSIONS_FILE as _VERSIONS_FILE
+from godotllminteraction.specifications.schema_diff import (
+    _ENUM_NAMES,
+    compute_schema_diff,
+    format_report_json,
+    format_report_yaml,
 )
 
 app = typer.Typer(help="Codegen utilities for versioned Godot API specifications.")
@@ -242,22 +250,27 @@ _ENUM_BLOCK_RENDERERS = {
 }
 
 
-def _block_pattern(name: str) -> re.Pattern[str]:
+def _block_pattern(
+    name: str, command_str: str = "sync-enums-v4-7-0"
+) -> re.Pattern[str]:
     marker = re.escape(name)
+    cmd = re.escape(command_str)
     return re.compile(
-        rf"(# === GENERATED: {marker} \(run: gli specifications sync-enums-v4-7-0\) ===\n)"
+        rf"(# === GENERATED: {marker} \(run: gli specifications {cmd}\) ===\n)"
         rf"(.*?)"
         rf"(\n# === END GENERATED: {marker} ===)",
         re.DOTALL,
     )
 
 
-def render_spec_source(spec_source: str, data: dict) -> str:
+def render_spec_source(
+    spec_source: str, data: dict, command_str: str = "sync-enums-v4-7-0"
+) -> str:
     """Replace each generated enum block in spec.py's source with freshly derived code."""
     updated = spec_source
     for name, renderer in _ENUM_BLOCK_RENDERERS.items():
         block = renderer(data)
-        pattern = _block_pattern(name)
+        pattern = _block_pattern(name, command_str)
         if not pattern.search(updated):
             raise ValueError(
                 f"Could not find generated block markers for {name!r} in spec.py"
@@ -268,7 +281,76 @@ def render_spec_source(spec_source: str, data: dict) -> str:
     return updated
 
 
-@app.command("sync-enums-v4-7-0")
+@app.command("sync-enums")
+def sync_enums(
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version package to sync, e.g. 'v4_7_0'.",
+        ),
+    ],
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Only check whether the generated enum blocks are up to date; don't write.",
+        ),
+    ] = False,
+) -> None:
+    """Sync the generated enum blocks inside specifications/<version>/spec.py from extension_api.json."""
+    if not _VERSION_RE.match(version):
+        print_error(
+            f"Invalid version {version!r}; expected a format like 'v4_7_0' "
+            "(a valid Python identifier, 'v' + major_minor[_patch])."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    spec_path = _SPECIFICATIONS_ROOT / version / "spec.py"
+    if not spec_path.exists():
+        print_error(f"spec.py not found at {spec_path}.")
+        raise typer.Exit(code=EXIT_ERROR)
+
+    command_str = f"sync-enums --version {version}"
+    data = json.loads(api_json.read_text())
+    try:
+        updated = render_spec_source(spec_path.read_text(), data, command_str)
+    except ValueError as exc:
+        print_error(str(exc))
+        raise typer.Exit(code=EXIT_ERROR) from exc
+
+    if check:
+        if _is_stale(spec_path, updated):
+            print_error(
+                f"Generated enum blocks in specifications/{version}/spec.py are stale. "
+                f"Run `gli specifications sync-enums --version {version}` to refresh."
+            )
+            raise typer.Exit(code=EXIT_ERROR)
+        print_success(
+            f"Generated enum blocks in specifications/{version}/spec.py are up to date."
+        )
+        return
+
+    if _write_if_changed(spec_path, updated):
+        print_success(f"Updated {spec_path}.")
+    else:
+        print_text(
+            f"Generated enum blocks in specifications/{version}/spec.py already up to date."
+        )
+
+
+@app.command("sync-enums-v4-7-0", deprecated=True)
 def sync_enums_v4_7_0(
     api_json: Annotated[
         Path,
@@ -288,11 +370,10 @@ def sync_enums_v4_7_0(
         ),
     ] = False,
 ) -> None:
-    """Sync the generated enum blocks inside specifications/v4_7_0/spec.py from extension_api.json.
-
-    This is specific to the 4.7.0 API dump shape; it is not guaranteed to produce
-    correct results for extension_api.json dumps from other Godot versions (e.g. 4.8).
-    """
+    """Deprecated: use `gli specifications sync-enums --version v4_7_0` instead."""
+    print_warning(
+        "sync-enums-v4-7-0 is deprecated. Use `gli specifications sync-enums --version v4_7_0` instead."
+    )
     data = json.loads(api_json.read_text())
     try:
         updated = render_spec_source(_SPEC_V4_7_0_PATH.read_text(), data)
@@ -304,7 +385,7 @@ def sync_enums_v4_7_0(
         if _is_stale(_SPEC_V4_7_0_PATH, updated):
             print_error(
                 "Generated enum blocks in specifications/v4_7_0/spec.py are stale. "
-                "Run `gli specifications sync-enums-v4-7-0` to refresh."
+                "Run `gli specifications sync-enums --version v4_7_0` to refresh."
             )
             raise typer.Exit(code=EXIT_ERROR)
         print_success("Generated enum blocks in spec.py are up to date.")
@@ -1007,16 +1088,17 @@ def generate_all(
 ) -> None:
     """Run every codegen step for a specifications/<version>/ package.
 
-    For v4_7_0 this is: sync-enums-v4-7-0 (spec.py), then generate-builtin-classes,
-    then generate-classes, then generate-signals. For any other version, the enum
-    sync step is skipped with a warning, since it's specific to the 4.7.0 API shape.
+    Runs sync-enums (spec.py), then generate-builtin-classes, then
+    generate-classes, then generate-signals. Skips enum sync if spec.py
+    doesn't exist yet (use ``add-version`` to create it).
     """
-    if version == "v4_7_0":
-        sync_enums_v4_7_0(api_json=api_json, check=check)
+    spec_path = _SPECIFICATIONS_ROOT / version / "spec.py"
+    if spec_path.exists():
+        sync_enums(version=version, api_json=api_json, check=check)
     else:
         print_warning(
-            f"Skipping enum sync for {version!r}: sync-enums-v4-7-0 is specific to "
-            "the 4.7.0 API shape and has no equivalent for other versions yet."
+            f"Skipping enum sync: {spec_path} not found. "
+            "Use 'gli specifications add-version' to create it."
         )
     generate_builtin_classes(version=version, api_json=api_json, check=check)
     generate_classes(version=version, api_json=api_json, check=check)
@@ -1026,3 +1108,449 @@ def generate_all(
         print_success(f"Everything for {version} is up to date.")
     else:
         print_success(f"Everything for {version} is generated.")
+
+
+# --- Schema diff and add-version -------------------------------------------
+
+
+def _read_godot_versions() -> list[str]:
+    """Read godot-versions.txt, returning a list of version strings like ['4.4.0', ...]."""
+    if not _VERSIONS_FILE.exists():
+        return []
+    return [
+        line.strip()
+        for line in _VERSIONS_FILE.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+
+
+def _version_to_pkg(version: str) -> str:
+    """Convert '4.4.0' to 'v4_4_0'."""
+    return "v" + version.replace(".", "_")
+
+
+def _version_to_class_suffix(version_pkg: str) -> str:
+    """Convert 'v4_4_0' to '4_4_0'."""
+    return version_pkg[1:] if version_pkg.startswith("v") else version_pkg
+
+
+def _get_enum_values_from_module(version_pkg: str) -> dict[str, set[str]]:
+    """Import a version's spec module and extract enum values from the 5 enum classes."""
+    module = importlib.import_module(
+        f"godotllminteraction.specifications.{version_pkg}.spec"
+    )
+    result: dict[str, set[str]] = {}
+    for enum_name in _ENUM_NAMES:
+        enum_class = getattr(module, enum_name, None)
+        if enum_class is not None:
+            result[enum_name] = {member.value for member in enum_class}
+    return result
+
+
+def _render_spec_py_template(
+    version_pkg: str,
+    base_version_pkg: str | None,
+    enum_comparison: dict[str, dict] | None,
+) -> str:
+    """Generate the spec.py source for a new version package.
+
+    Enums identical to the base version are imported from it; others get
+    placeholder marker blocks for sync-enums to fill in.
+    """
+    suffix = _version_to_class_suffix(version_pkg)
+    class_name = f"Specification{suffix}"
+
+    imports_from_shared = [
+        "BuiltinClass",
+        "BuiltinClassArgument",
+        "BuiltinClassConstructor",
+        "BuiltinClassConstant",
+        "BuiltinClassEnum",
+        "BuiltinClassMember",
+        "BuiltinClassMemberOffsets",
+        "BuiltinClassMethod",
+        "BuiltinClassOperator",
+        "BuiltinClassSizeType",
+        "BuiltinClassesList",
+        "ClassConstant",
+        "ClassMember",
+        "ClassMemeberOffset",
+        "ClassMethod",
+        "ClassMethodArgument",
+        "ClassMethodReturnValue",
+        "ClassProperty",
+        "ClassSignal",
+        "ClassSignalArgument",
+        "ClassSize",
+        "ClassesList",
+        "GlobalConstant",
+        "GlobalConstantsList",
+        "GlobalEnumsList",
+        "GodotClass",
+        "GodotEnum",
+        "GodotEnumValues",
+        "Header",
+        "NativeStructure",
+        "NativeStructuresList",
+        "Singleton",
+        "SingletonsList",
+        "UtilityFunction",
+        "UtilityFunctionArgument",
+        "UtilityFunctionsList",
+    ]
+
+    lines = [
+        '"""Auto-generated spec for Godot ' + version_pkg + '. Do not edit by hand."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from enum import Enum",
+        "from functools import cached_property",
+        "from typing import List, Optional, Union",
+        "",
+        "from pydantic import BaseModel, Field",
+        "",
+        "from godotllminteraction.specifications.shared.spec import (",
+    ]
+    for name in imports_from_shared:
+        lines.append(f"    {name},")
+    lines.append(")")
+    lines.append("")
+
+    enum_blocks = {
+        "GodotTypeNameEnum": (
+            "GodotTypeName",
+            "UtilityFunctionReturnType = GodotTypeName",
+        ),
+        "UtilityFunctionCategoryEnum": ("UtilityFunctionCategory", None),
+        "BuiltinClassOperatorNameEnum": ("BuiltinClassOperatorName", None),
+        "GodotArgumentMetaEnum": ("GodotArgumentMeta", None),
+        "ClassApiTypeEnum": ("ClassApiType", None),
+    }
+
+    enum_imports: list[str] = []
+    for enum_name, (alias_name, extra_alias) in enum_blocks.items():
+        should_import = (
+            base_version_pkg is not None
+            and enum_comparison is not None
+            and enum_comparison.get(enum_name, {}).get("identical_to_base") is True
+        )
+        if should_import:
+            enum_imports.append(enum_name)
+            enum_imports.append(alias_name)
+        else:
+            lines.append("")
+            lines.append(
+                f"# === GENERATED: {enum_name} "
+                f"(run: gli specifications sync-enums --version {version_pkg}) ==="
+            )
+            lines.append(f"class {enum_name}(str, Enum):")
+            lines.append('    PLACEHOLDER = "placeholder"')
+            lines.append("")
+            lines.append("")
+            lines.append(f"{alias_name} = Union[{enum_name}, str]")
+            lines.append(f"# === END GENERATED: {enum_name} ===")
+            if extra_alias:
+                lines.append("")
+                lines.append(extra_alias)
+
+    if enum_imports:
+        lines.append("")
+        lines.append(
+            f"from godotllminteraction.specifications.{base_version_pkg}.spec import ("
+        )
+        for name in enum_imports:
+            lines.append(f"    {name},")
+        lines.append(")")
+
+    lines.append("")
+    lines.append("")
+    lines.append(f"class {class_name}(BaseModel):")
+    lines.append(
+        f'    """Full Godot {version_pkg} GDExtension API dump, '
+        'mirroring the top-level sections of extension_api.json."""'
+    )
+    lines.append("")
+    lines.append(
+        '    header: Header = Field(description="Engine version and build metadata")'
+    )
+    lines.append("    builtin_class_sizes: List[BuiltinClassSizeType] = Field(")
+    lines.append(
+        '        description="Byte sizes of builtin classes, per build configuration"'
+    )
+    lines.append("    )")
+    lines.append(
+        "    builtin_class_member_offsets: List[BuiltinClassMemberOffsets] = Field("
+    )
+    lines.append(
+        '        description="Member offsets within builtin classes, per build configuration"'
+    )
+    lines.append("    )")
+    lines.append("    global_constants: GlobalConstantsList = Field(")
+    lines.append('        description="Engine-wide global constants"')
+    lines.append("    )")
+    lines.append(
+        '    global_enums: GlobalEnumsList = Field(description="Engine-wide global enums")'
+    )
+    lines.append("    utility_functions: UtilityFunctionsList = Field(")
+    lines.append(
+        '        description="Global utility functions (math, random, general)"'
+    )
+    lines.append("    )")
+    lines.append("    builtin_classes: BuiltinClassesList = Field(")
+    lines.append(
+        '        description="Builtin variant types such as Vector2, Color, Array"'
+    )
+    lines.append("    )")
+    lines.append("    classes: ClassesList = Field(")
+    lines.append(
+        '        description="Engine class hierarchy such as Object, Node, Resource"'
+    )
+    lines.append("    )")
+    lines.append("    singletons: SingletonsList = Field(")
+    lines.append('        description="Globally accessible singleton instances"')
+    lines.append("    )")
+    lines.append("    native_structures: NativeStructuresList = Field(")
+    lines.append('        description="Native C++ structs exposed to extensions"')
+    lines.append("    )")
+    lines.append("")
+    lines.append("    @cached_property")
+    lines.append("    def class_names(self):")
+    lines.append("        return [cls.name for cls in self.classes]")
+    lines.append("")
+    lines.append("    @cached_property")
+    lines.append("    def builtin_class_names(self):")
+    lines.append("        return [cls.name for cls in self.builtin_classes]")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+@app.command("diff-schema")
+def diff_schema(
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version package to diff, e.g. 'v4_4_1'.",
+        ),
+    ],
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    base_version: Annotated[
+        str | None,
+        typer.Option(
+            "--base-version",
+            help="Base version package to compare against, e.g. 'v4_4_0'. "
+            "Required unless --first-version is set.",
+        ),
+    ] = None,
+    first_version: Annotated[
+        bool,
+        typer.Option(
+            "--first-version",
+            help="Skip base version comparison (for the first version added).",
+        ),
+    ] = False,
+    report_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--report",
+            help="Path to write the diff report. Default: schema_diff_<version>.yaml",
+        ),
+    ] = None,
+    report_format: Annotated[
+        str,
+        typer.Option(
+            "--format",
+            help="Report format: 'yaml' (default) or 'json'.",
+        ),
+    ] = "yaml",
+) -> None:
+    """Compute the schema diff between extension_api.json and the shared pydantic models."""
+    if not _VERSION_RE.match(version):
+        print_error(f"Invalid version {version!r}; expected a format like 'v4_4_0'.")
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if base_version is None and not first_version:
+        print_error(
+            "--base-version is required (or use --first-version for the first version)."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if base_version is not None and not _VERSION_RE.match(base_version):
+        print_error(
+            f"Invalid base version {base_version!r}; expected a format like 'v4_4_0'."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    data = json.loads(api_json.read_text())
+
+    base_enum_values: dict[str, set[str]] | None = None
+    if base_version is not None:
+        try:
+            base_enum_values = _get_enum_values_from_module(base_version)
+        except ImportError as exc:
+            print_error(f"Could not import base version {base_version}: {exc}")
+            raise typer.Exit(code=EXIT_ERROR) from exc
+
+    report = compute_schema_diff(
+        data,
+        base_enum_values=base_enum_values,
+        version=version,
+        base_version=base_version or "",
+    )
+
+    if report_path is None:
+        ext = "yaml" if report_format == "yaml" else "json"
+        report_path = Path(f"schema_diff_{version}.{ext}")
+
+    if report_format == "json":
+        report_text = format_report_json(report)
+    else:
+        report_text = format_report_yaml(report)
+
+    report_path.write_text(report_text)
+    print_success(f"Schema diff report written to {report_path}.")
+
+    if report.requires_human_intervention:
+        print_error("Human intervention required. Review the report for details.")
+        raise typer.Exit(code=EXIT_ERROR)
+
+    print_text("No human intervention required.")
+
+
+@app.command("add-version")
+def add_version(
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version package to create, e.g. 'v4_4_1'.",
+        ),
+    ],
+    api_json: Annotated[
+        Path,
+        typer.Option(
+            "--api",
+            "-a",
+            help="Path to extension_api.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = Path("extension_api.json"),
+    base_version: Annotated[
+        str | None,
+        typer.Option(
+            "--base-version",
+            help="Base version package to compare against, e.g. 'v4_4_0'. "
+            "Required unless --first-version is set.",
+        ),
+    ] = None,
+    first_version: Annotated[
+        bool,
+        typer.Option(
+            "--first-version",
+            help="Skip base version comparison (for the first version added).",
+        ),
+    ] = False,
+) -> None:
+    """Orchestrate the full version-addition workflow: diff, generate spec.py, sync enums, generate code."""
+    if not _VERSION_RE.match(version):
+        print_error(f"Invalid version {version!r}; expected a format like 'v4_4_0'.")
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if base_version is None and not first_version:
+        print_error(
+            "--base-version is required (or use --first-version for the first version)."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if base_version is not None and not _VERSION_RE.match(base_version):
+        print_error(
+            f"Invalid base version {base_version!r}; expected a format like 'v4_4_0'."
+        )
+        raise typer.Exit(code=EXIT_USAGE)
+
+    data = json.loads(api_json.read_text())
+
+    base_enum_values: dict[str, set[str]] | None = None
+    if base_version is not None:
+        try:
+            base_enum_values = _get_enum_values_from_module(base_version)
+        except ImportError as exc:
+            print_error(f"Could not import base version {base_version}: {exc}")
+            raise typer.Exit(code=EXIT_ERROR) from exc
+
+    report = compute_schema_diff(
+        data,
+        base_enum_values=base_enum_values,
+        version=version,
+        base_version=base_version or "",
+    )
+
+    if report.requires_human_intervention:
+        report_path = Path(f"schema_diff_{version}.yaml")
+        report_path.write_text(format_report_yaml(report))
+        print_error(
+            f"Human intervention required. Report written to {report_path}. "
+            "Resolve the issues and re-run."
+        )
+        raise typer.Exit(code=EXIT_ERROR)
+
+    version_dir, created = _ensure_version_package(version)
+    if created:
+        print_success(f"Created {version_dir}.")
+
+    spec_path = version_dir / "spec.py"
+    spec_source = _render_spec_py_template(
+        version, base_version if not first_version else None, report.enum_comparison
+    )
+    _write_if_changed(spec_path, spec_source)
+    print_success(f"Generated {spec_path}.")
+
+    sync_enums(version=version, api_json=api_json)
+    generate_builtin_classes(version=version, api_json=api_json)
+    generate_classes(version=version, api_json=api_json)
+    generate_signals(version=version, api_json=api_json)
+
+    init_path = version_dir / "__init__.py"
+    suffix = _version_to_class_suffix(version)
+    class_name = f"Specification{suffix}"
+    init_source = (
+        f"from godotllminteraction.specifications.{version}.spec import {class_name}\n\n"
+        f'__all__ = ["{class_name}"]\n'
+    )
+    _write_if_changed(init_path, init_source)
+    print_success(f"Generated {init_path}.")
+
+    if _VERSIONS_FILE.exists():
+        existing = _read_godot_versions()
+        version_dot = (
+            version[1:].replace("_", ".") if version.startswith("v") else version
+        )
+        if version_dot not in existing:
+            existing.append(version_dot)
+            existing.sort(key=lambda v: [int(x) for x in v.split(".")])
+            _VERSIONS_FILE.write_text("\n".join(existing) + "\n")
+            print_success(f"Appended {version_dot} to {_VERSIONS_FILE}.")
+
+    print_success(f"Version {version} added successfully.")
+
+    guidance = report.test_guidance
+    if guidance.detectable:
+        print_text("\nTest guidance:")
+        for suggestion in guidance.detectable:
+            print_text(f"  - {suggestion}")
+    else:
+        print_text(f"\nTest guidance: {guidance.generic}")

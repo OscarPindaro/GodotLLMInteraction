@@ -49,7 +49,7 @@ def specifications_root(tmp_path: Path):
         yield root
 
 
-def test_generate_all_skips_enum_sync_for_non_v4_7_0_version(
+def test_generate_all_skips_enum_sync_when_spec_py_missing(
     api_json_path, specifications_root
 ):
     result = runner.invoke(

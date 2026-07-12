@@ -9,3 +9,13 @@ if ! uv tool list 2>/dev/null | grep -q '^semble '; then
 fi
 
 uv run pre-commit install
+
+# Download extension_api.json reference files for integration tests
+if command -v godotctl >/dev/null 2>&1; then
+  echo "Downloading extension_api.json reference files..."
+  godotctl download-apis || echo "Warning: could not download extension_api.json files. Integration tests will be skipped."
+  godotctl check-missing-binaries
+else
+  echo "Warning: godotctl not found. Install it with: bash install-godot.sh self-register"
+  echo "  Then run: godotctl download-apis"
+fi

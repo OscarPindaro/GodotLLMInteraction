@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from godotllminteraction.cli.specifications import render_spec_source
+from godotllminteraction.cli.specifications import (
+    _block_pattern,
+    render_spec_source,
+)
 
 FAKE_DATA = {
     "utility_functions": [
@@ -153,3 +156,28 @@ class TestRenderSpecSource:
         once = render_spec_source(_SPEC_SKELETON, FAKE_DATA)
         twice = render_spec_source(once, FAKE_DATA)
         assert once == twice
+
+
+class TestBlockPatternVersioned:
+    def test_default_pattern_matches_old_marker(self):
+        pattern = _block_pattern("GodotTypeNameEnum")
+        text = "# === GENERATED: GodotTypeNameEnum (run: gli specifications sync-enums-v4-7-0) ===\nclass X:\n    pass\n# === END GENERATED: GodotTypeNameEnum ==="
+        assert pattern.search(text) is not None
+
+    def test_versioned_pattern_matches_new_marker(self):
+        pattern = _block_pattern("GodotTypeNameEnum", "sync-enums --version v4_4_0")
+        text = "# === GENERATED: GodotTypeNameEnum (run: gli specifications sync-enums --version v4_4_0) ===\nclass X:\n    pass\n# === END GENERATED: GodotTypeNameEnum ==="
+        assert pattern.search(text) is not None
+
+    def test_versioned_pattern_does_not_match_old_marker(self):
+        pattern = _block_pattern("GodotTypeNameEnum", "sync-enums --version v4_4_0")
+        text = "# === GENERATED: GodotTypeNameEnum (run: gli specifications sync-enums-v4-7-0) ===\nclass X:\n    pass\n# === END GENERATED: GodotTypeNameEnum ==="
+        assert pattern.search(text) is None
+
+    def test_render_spec_source_with_versioned_command(self):
+        skeleton = _SPEC_SKELETON.replace(
+            "sync-enums-v4-7-0", "sync-enums --version v4_4_0"
+        )
+        updated = render_spec_source(skeleton, FAKE_DATA, "sync-enums --version v4_4_0")
+        assert 'VECTOR2 = "Vector2"' in updated
+        assert 'FLOAT = "float"' in updated

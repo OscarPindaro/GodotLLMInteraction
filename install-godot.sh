@@ -116,6 +116,9 @@ Commands:
   switch [version]        Switch the active Godot version (interactive if no arg)
   register <binary> <name> [icon]  Register a compiled Godot binary
   sanitize [--remove] [--repair]  Check for orphaned entries
+  download-apis [--out-dir <path>] [--versions-file <path>] [--force]
+                          Download extension_api.json files for all versions in godot-versions.txt
+  check-missing-binaries  Report which Godot binaries are missing for testing
   self-register           Install this script as 'godot-install' in PATH
   <binary> <name> [icon]  Manually install a Godot binary (legacy mode)
 
@@ -729,6 +732,102 @@ cmd_self_register() {
     print_detail "  Or from anywhere: $cmd_name install -y"
 }
 
+cmd_download_apis() {
+    local out_dir="" versions_file="" force=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --out-dir) out_dir="$2"; shift 2 ;;
+            --versions-file) versions_file="$2"; shift 2 ;;
+            --force) force=true; shift ;;
+            *) print_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    # Default paths relative to the script's repo root
+    local repo_root
+    repo_root="$(cd "$SCRIPT_DIR" && pwd)"
+    [[ -z "$versions_file" ]] && versions_file="$repo_root/godot-versions.txt"
+    [[ -z "$out_dir" ]] && out_dir="$repo_root/tests/data/extension_api"
+
+    if [[ ! -f "$versions_file" ]]; then
+        print_error "Versions file not found: $versions_file"
+        exit 1
+    fi
+
+    mkdir -p "$out_dir"
+
+    local base_url="https://raw.githubusercontent.com/godotengine/godot-cpp/master/gdextension"
+    local downloaded=0 skipped=0 failed=0
+    declare -A fetched_minors
+
+    while IFS= read -r version; do
+        [[ -z "$version" || "$version" == \#* ]] && continue
+
+        local minor="${version%.*}"
+        local out_file="$out_dir/extension_api-${version}.json"
+
+        if [[ -f "$out_file" && "$force" != true ]]; then
+            print_detail "  Skip: $out_file (already exists)"
+            ((skipped++)) || true
+            continue
+        fi
+
+        local source_url
+        if [[ "$minor" == "4.7" ]]; then
+            source_url="$base_url/extension_api.json"
+        else
+            source_url="$base_url/extension_api-${minor//./-}.json"
+        fi
+
+        if [[ -n "${fetched_minors[$minor]}" ]]; then
+            cp "${fetched_minors[$minor]}" "$out_file"
+            print_detail "  Copy: $out_file (from cached $minor)"
+            ((downloaded++)) || true
+            continue
+        fi
+
+        print_info "  Downloading: $source_url"
+        if curl -sfL "$source_url" -o "$out_file" 2>/dev/null; then
+            print_success "  Saved: $out_file"
+            fetched_minors[$minor]="$out_file"
+            ((downloaded++)) || true
+        else
+            print_error "  Failed: $source_url"
+            ((failed++)) || true
+        fi
+    done < "$versions_file"
+
+    echo ""
+    print_info "Downloaded: $downloaded, Skipped: $skipped, Failed: $failed"
+}
+
+cmd_check_missing_binaries() {
+    local repo_root
+    repo_root="$(cd "$SCRIPT_DIR" && pwd)"
+    local versions_file="$repo_root/godot-versions.txt"
+
+    if [[ ! -f "$versions_file" ]]; then
+        return
+    fi
+
+    local missing=()
+    while IFS= read -r version; do
+        [[ -z "$version" || "$version" == \#* ]] && continue
+        local name="godot-${version}-stable"
+        if [[ ! -f "$OPT_DIR/$name" ]]; then
+            missing+=("$version")
+        fi
+    done < "$versions_file"
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo ""
+        print_warning "Missing Godot binaries for versions: $(IFS=', '; echo "${missing[*]}")"
+        print_warning "  Download from: https://godotengine.org/download/archive/"
+        print_warning "  Then register with: godotctl register <path-to-binary> godot-<version>-stable"
+        print_warning "  e2e tests for these versions will be skipped until the binaries are installed."
+    fi
+}
+
 # --- Main ------------------------------------------------------------------
 
 main() {
@@ -766,6 +865,13 @@ main() {
         sanitize)
             shift
             cmd_sanitize "$@"
+            ;;
+        download-apis)
+            shift
+            cmd_download_apis "$@"
+            ;;
+        check-missing-binaries)
+            cmd_check_missing_binaries
             ;;
         self-register)
             cmd_self_register

@@ -58,6 +58,7 @@ dmypy.json
 
 # extension_api.json, too big to be tracked
 extension_api.json
+tests/data/extension_api/
 
 # generated scene outputs for manual inspection in the Godot editor
 out/
