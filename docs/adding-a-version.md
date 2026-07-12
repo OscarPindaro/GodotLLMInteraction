@@ -109,15 +109,33 @@ create a `README.md` with source attribution.
 4. **Replace scripts with stubs**: The original scripts reference types from the
    full project (Battler, Gameboard, Cutscene, FieldEvents, etc.) that don't exist
    in the test fixtures. Replace them with minimal stubs that keep the same
-   `class_name` and `extends`:
+   `class_name` and `extends`.
+
+   **Important:** Do not blindly copy `extends` from the previous version's stubs.
+   Scene structure can change between versions (e.g. in 4.5.0 `gamepiece.tscn`
+   changed its root node from `Node2D` to `Path2D`). Always check the root node
+   type in the extracted `.tscn` file and match the `extends` clause accordingly:
+   ```bash
+   # Check the root node type in each scene
+   grep '^\[node ' $DEST/*.tscn | head -5
+   ```
+   Then write stubs matching the actual node types:
    ```bash
    echo 'class_name CombatAI extends Node' > $DEST/combat_ai_random.gd
-   echo 'class_name Gamepiece extends Node2D' > $DEST/gamepiece.gd
+   echo 'class_name Gamepiece extends Node2D' > $DEST/gamepiece.gd  # 4.4.x
+   # echo 'class_name Gamepiece extends Path2D' > $DEST/gamepiece.gd  # 4.5.0+
    echo 'class_name Cutscene extends Node2D' > $DEST/cutscene.gd
    echo 'class_name Trigger extends Cutscene' > $DEST/trigger.gd
    ```
-   Keep `screen_transition.gd` and `ui_damage_label.gd` as-is if they have no
-   external dependencies.
+
+   **Checking for external dependencies:** Before keeping a script as-is, verify
+   it has no external references:
+   ```bash
+   git -C /tmp/gdquest-open-rpg show $COMMIT:src/path/to/script.gd | grep -n 'preload\|load\|const\|import'
+   ```
+   If the output references project-internal types (Battler, Gameboard, etc.),
+   replace with a stub. If it only references engine builtins (Color, Tween,
+   etc.), it is safe to keep.
 
 5. **Rename `.theme` to `.tres`**: Godot expects `.theme` files to be binary.
    If the original theme is text-based, rename it to `.tres`:
@@ -168,6 +186,18 @@ Tests that our Python parser can parse the scenes without errors. Check:
 - Sub-resources (Trigger.tscn)
 - Node hierarchy (gamepiece.tscn)
 - All scenes have `format=3` and `uid` attribute
+
+**Important:** The `SCENE_FIXTURES` table (root node type, ext resource count,
+node count) and the node hierarchy test must be adapted per version. Scene
+structure can change between Godot versions — for example, `gamepiece.tscn`
+had 6 nodes with a `Node2D > Decoupler > Path2D > PathFollow2D > RemoteTransform2D`
+hierarchy in 4.4.1, but was refactored to 3 nodes with
+`Path2D > PathFollow2D > RemoteTransform2D` in 4.5.0. Always diff the scenes
+against the previous version's fixtures and update the test assertions:
+```bash
+diff <(git -C /tmp/gdquest-open-rpg show $PREV_COMMIT:src/field/gamepieces/gamepiece.tscn) \
+     <(git -C /tmp/gdquest-open-rpg show $COMMIT:src/field/gamepieces/gamepiece.tscn)
+```
 
 ### `tests/e2e/real_scenes_godot_check_vX_Y_Z_test.py`
 

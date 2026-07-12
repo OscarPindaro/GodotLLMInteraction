@@ -83,3 +83,27 @@ def test_enum_comparison_new_values_are_subset_of_full_set():
             assert new_set.isdisjoint(base_enums[enum_name]), (
                 f"{enum_name} new_values overlap with base"
             )
+
+
+def test_godot_argument_meta_enum_required_member_in_v4_6_0():
+    """v4_6_0 GodotArgumentMetaEnum should have REQUIRED member not present in v4_5_0."""
+    from godotllminteraction.specifications.v4_5_0.spec import (
+        GodotArgumentMetaEnum as Enum_4_5_0,
+    )
+    from godotllminteraction.specifications.v4_6_0.spec import (
+        GodotArgumentMetaEnum as Enum_4_6_0,
+    )
+
+    v4_5_0_values = {m.value for m in Enum_4_5_0}
+    v4_6_0_values = {m.value for m in Enum_4_6_0}
+
+    assert "required" not in v4_5_0_values, (
+        "v4_5_0 should not have 'required' in GodotArgumentMetaEnum"
+    )
+    assert "required" in v4_6_0_values, (
+        "v4_6_0 should have 'required' in GodotArgumentMetaEnum"
+    )
+    # v4_6_0 should be a superset of v4_5_0
+    assert v4_5_0_values < v4_6_0_values, (
+        "v4_6_0 GodotArgumentMetaEnum should be a strict superset of v4_5_0"
+    )

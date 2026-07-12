@@ -1,0 +1,23 @@
+; Engine configuration file.
+; Test project for open_rpg_4_6_0 scene fixtures.
+; These scenes are from gdquest-demos/godot-open-rpg at commit b70df69
+; ("Update Godot version to 4.6.2"), MIT licensed.
+
+config_version=5
+
+[application]
+
+config/name="open_rpg_4_6_0_test_fixtures"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[filesystem]
+
+import/blender/enabled=false
+import/fbx/enabled=false
