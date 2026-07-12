@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://usnr65gb7i92uh"]
 
 [ext_resource type="Script" path="res://exported_props.gd" id="1_export"]
 
