@@ -20,10 +20,6 @@ def _discover_version_packages() -> list[str]:
     packages = []
     for d in SPECIFICATIONS_ROOT.iterdir():
         if d.is_dir() and d.name.startswith("v") and (d / "spec.py").exists():
-            # v4_7_0 uses the old hand-written spec (Specification4_7, not
-            # Specification4_7_0) — skip until it's migrated to the shared system.
-            if d.name == "v4_7_0":
-                continue
             packages.append(d.name)
     return sorted(packages)
 

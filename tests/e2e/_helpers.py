@@ -28,7 +28,8 @@ def discover_godot_binaries() -> list[tuple[str, str]]:
                 match = _VERSION_RE.search(line)
                 if match:
                     version = match.group(1)
-                    binary = shutil.which(line) or line
+                    binary_name = match.group(0)
+                    binary = shutil.which(binary_name) or binary_name
                     if Path(binary).is_file():
                         binaries.append((version, binary))
             binaries.sort(key=lambda v: [int(x) for x in v[0].split(".")])
@@ -50,10 +51,23 @@ def discover_godot_binaries() -> list[tuple[str, str]]:
     return binaries
 
 
+def _normalize_version(v: str) -> str:
+    """Strip trailing .0 patch version so '4.7.0' matches '4.7'."""
+    parts = v.split(".")
+    if len(parts) == 3 and parts[2] == "0":
+        return ".".join(parts[:2])
+    return v
+
+
 def godot_binary_path(version: str) -> str | None:
-    """Find the Godot binary for a specific version."""
+    """Find the Godot binary for a specific version.
+
+    Matches both ``4.7`` and ``4.7.0`` — Godot binaries for x.y.0 releases
+    are often named ``godot-x.y-stable`` (without the patch).
+    """
+    target = _normalize_version(version)
     for v, path in discover_godot_binaries():
-        if v == version:
+        if _normalize_version(v) == target:
             return path
     return None
 
@@ -72,8 +86,15 @@ def discover_all_versions() -> list[str]:
 
 
 def installed_godot_versions() -> list[str]:
-    """List of installed Godot version strings, sorted."""
-    return [v for v, _ in discover_godot_binaries()]
+    """List of installed Godot version strings (normalized to x.y.z), sorted."""
+    result = []
+    for v, _ in discover_godot_binaries():
+        parts = v.split(".")
+        if len(parts) == 2:
+            result.append(f"{v}.0")
+        else:
+            result.append(v)
+    return result
 
 
 def dump_extension_api(binary: str, out_dir: Path) -> Path:

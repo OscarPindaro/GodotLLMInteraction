@@ -1,0 +1,6 @@
+[gd_scene load_steps=1 format=3]
+
+[node name="Root" type="Node2D"]
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("nonexistent")
