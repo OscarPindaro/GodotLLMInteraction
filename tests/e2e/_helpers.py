@@ -124,3 +124,57 @@ def check_scene(
         text=True,
         timeout=60,
     )
+
+
+def output_scene_path(scenes_dir: Path, scene_name: str, suffix: str = "_e2e") -> Path:
+    """Return a temp output path inside the fixture project dir.
+
+    The file does *not* need to exist — CLI ``--output`` writes it there.
+    Living inside the fixture dir means Godot can find ``project.godot``
+    and resources.
+    """
+    stem = scenes_dir / scene_name
+    return stem.with_name(f"{stem.stem}{suffix}.tscn")
+
+
+def cleanup_test_scenes(scenes_dir: Path) -> None:
+    """Remove any ``*_e2e.tscn`` files left behind in *scenes_dir*."""
+    for f in scenes_dir.glob("*_e2e.tscn"):
+        f.unlink(missing_ok=True)
+
+
+def run_cli_edit(args: list[str]):
+    """Invoke a ``gli tscn <args>`` command via CliRunner.
+
+    ``args`` is the full list after ``tscn``, e.g. ``["add-node", str(path),
+    "TempNode", "--type", "Node"]``.
+    """
+    from typer.testing import CliRunner
+
+    from godotllminteraction.cli import app
+
+    runner = CliRunner()
+    return runner.invoke(app, ["tscn", *args])
+
+
+def validate_both(
+    scene_path: Path,
+    scenes_dir: Path,
+    binary: str,
+) -> tuple[int, int]:
+    """Run both CLI ``validate`` and Godot ``--check-only`` on *scene_path*.
+
+    Returns ``(cli_exit, godot_exit)`` so callers can assert agreement.
+    """
+    cli_result = run_cli_edit(
+        [
+            "validate",
+            str(scene_path),
+            "--project",
+            str(scenes_dir),
+            "--godot",
+            binary,
+        ],
+    )
+    godot_result = check_scene(binary, scenes_dir, scene_path.name)
+    return cli_result.exit_code, godot_result.returncode

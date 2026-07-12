@@ -221,6 +221,80 @@ uv run pytest tests/unit tests/integration tests/e2e -x -q
 All tests should pass. The e2e tests will auto-import the Godot project on first
 run (creating `.godot/` cache, which is gitignored).
 
+## Step 3b: Write edit-validate e2e tests
+
+Create `tests/e2e/real_scenes_edit_validate_vX_Y_Z_test.py`. This file verifies
+that CLI edit operations produce scenes Godot accepts, by running both
+`gli tscn validate` (CLI) and Godot `--check-only` on every edited scene.
+
+### Test classes
+
+Each file contains these test classes:
+
+- **`TestRoundtripGodotCheck`** — add then delete a TempNode, validate both steps
+- **`TestAddNodeGodotCheck`** — add a plain `Node` child to each scene
+- **`TestDeleteNodeGodotCheck`** — leaf delete + subtree delete (Trigger Area2D)
+- **`TestRenameNodeGodotCheck`** — rename child nodes (connection rewriting)
+- **`TestMoveNodeGodotCheck`** — move child to root for scenes with ≥3 nodes
+- **`TestUpdatePropertiesGodotCheck`** — safe property per scene
+- **`TestComplexChangesGodotCheck`** — multi-property transforms, sub-resource swap,
+  ext-resource swap, chained 8-step sequence on Trigger.tscn
+- **`TestAttachDetachScriptGodotCheck`** — attach `test_stub.gd` then detach
+- **`TestCreateSubResourceGodotCheck`** — create orphaned RectangleShape2D
+- **`TestConnectSignalGodotCheck`** — connect `body_entered` on Trigger.tscn
+- **`TestTreeCommand`** — `gli tscn tree --json` structure assertions (no Godot needed)
+- **`TestValidateCommand`** — `gli tscn validate` on original scenes
+- **`TestExportedPropertiesGodotCheck`** — update/add `@export` properties on `exported_props.tscn`
+- **`TestBadScenesCliGodotAgree`** — CLI and Godot must agree on bad scenes (both reject or both accept)
+
+### Helpers
+
+Use the shared helpers from `tests/e2e/_helpers.py`:
+
+- `output_scene_path(scenes_dir, scene_name)` — returns a temp path `<stem>_e2e.tscn`
+  inside the fixture dir (no file copy needed; the CLI `--output` flag writes there)
+- `cleanup_test_scenes(scenes_dir)` — removes `*_e2e.tscn` files after each test
+- `run_cli_edit(args)` — invokes `gli tscn <args>` via CliRunner
+- `validate_both(scene_path, scenes_dir, binary)` — runs both CLI validate and
+  Godot check, returns `(cli_exit, godot_exit)` for agreement assertion
+
+### `--output` pattern
+
+Tests use the CLI's `--output` flag to write edited scenes to `*_e2e.tscn` temp
+files instead of copying fixtures. The `_edit_and_validate` helper appends
+`--output <tmp>` automatically. Chained tests use `--output` on the first edit
+(reading from the source fixture), then edit in-place on the temp file for
+subsequent steps. Original fixtures are never modified.
+
+### `test_stub.gd`
+
+Add a `test_stub.gd` file to the fixture dir (`extends Node`) for attach-script
+tests. Godot generates the `.uid` file on import.
+
+### Bad-scenes sub-project
+
+Create `tests/data/scenes/bad_vX_Y_Z/` with `project.godot` and 4 intentionally
+broken `.tscn` files:
+
+| File | What's wrong |
+|------|-------------|
+| `not_a_scene.tscn` | `[gd_resource]` not `[gd_scene]` |
+| `missing_parent.tscn` | `parent="Ghost"` (nonexistent) |
+| `broken_connection.tscn` | connection to nonexistent node |
+| `broken_subresource.tscn` | `SubResource("nonexistent")` |
+
+The test asserts CLI and Godot **agree** on each scene's validity (both reject
+or both accept). Neither the CLI parser nor Godot's `--check-only` mode validates
+node types, so `unknown_type.tscn` was removed — both accept it, which is
+correct behavior.
+
+### Version-specific differences
+
+Adapt the test file for scene structure changes across versions. For example,
+4.4.1 `gamepiece.tscn` has 6 nodes (Node2D > Decoupler > Path2D > PathFollow2D >
+CameraAnchor + GFXAnchor), while 4.5.0+ has 3 nodes (Path2D > PathFollow2D >
+CameraAnchor). Always check the actual scene structure and update paths accordingly.
+
 ## Checklist
 
 - [ ] `gli specifications add-version --version vX_Y_Z --godot-version X.Y.Z --base-version vPREV`
@@ -235,4 +309,7 @@ run (creating `.godot/` cache, which is gitignored).
 - [ ] All scenes pass `--check-only` with no errors
 - [ ] `real_scenes_parse_vX_Y_Z_test.py` created
 - [ ] `real_scenes_godot_check_vX_Y_Z_test.py` created
+- [ ] `test_stub.gd` added to the fixture dir
+- [ ] `real_scenes_edit_validate_vX_Y_Z_test.py` created
+- [ ] `bad_vX_Y_Z/` sub-project created with 4 bad scenes
 - [ ] Full test suite passes
