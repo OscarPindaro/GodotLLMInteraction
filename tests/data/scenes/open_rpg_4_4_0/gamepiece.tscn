@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://b626e0bngfvjj"]
 
-[ext_resource type="Script" uid="uid://bn24acltw2l44" path="res://tests/data/scenes/open_rpg_4_4_0/gamepiece.gd" id="1_xhsbn"]
+[ext_resource type="Script" uid="uid://bn24acltw2l44" path="res://gamepiece.gd" id="1_xhsbn"]
 
 [node name="Gamepiece" type="Path2D"]
 y_sort_enabled = true

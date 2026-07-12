@@ -1,9 +1,10 @@
-# Scene Test Fixtures: open_rpg_4_4_0
+# Scene Test Fixtures: open_rpg_4_4_1
 
 These `.tscn` and `.gd` files are sourced from the
 [Godot Open RPG](https://github.com/gdquest-demos/godot-open-rpg) project by
-GDQuest, specifically the [`0.4.0` tag](https://github.com/gdquest-demos/godot-open-rpg/releases/tag/0.4.0)
-("Godot 4.4 rewrite").
+GDQuest, specifically commit
+[`47972ef`](https://github.com/gdquest-demos/godot-open-rpg/commit/47972ef)
+("Upgrade to Godot 4.4.1").
 
 ## License
 
@@ -13,7 +14,7 @@ See [LICENSE](./LICENSE) for the full text.
 ## Source
 
 - **Repository**: https://github.com/gdquest-demos/godot-open-rpg
-- **Tag**: 0.4.0
+- **Commit**: 47972ef ("Upgrade to Godot 4.4.1")
 - **Author**: GDQuest (Nathan Lovato et al.)
 - **License**: MIT
 
@@ -40,7 +41,7 @@ match the test fixture directory structure):
 ## Modifications
 
 - `res://` paths in `.tscn` files were rewritten to point to
-  `res://tests/data/scenes/open_rpg_4_4_0/` instead of the original project structure.
+  `res://tests/data/scenes/open_rpg_4_4_1/` instead of the original project structure.
 - `ui_combat.theme` was replaced with a minimal text-based `.tres` file
   (the original was a binary `.theme` file).
 - `project.godot` was created for the test fixture directory.

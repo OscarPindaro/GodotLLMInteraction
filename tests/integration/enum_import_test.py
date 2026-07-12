@@ -40,9 +40,9 @@ def test_enum_comparison_identical_when_same_data():
     data = _load_api("4.4.1")
     base_enums = extract_enum_values(data)
     report = compute_schema_diff(data, base_enum_values=base_enums, version="v4_4_1")
-    for enum_name, comp in report["enum_comparison"].items():
-        assert comp["identical_to_base"] is True, f"{enum_name} not identical to itself"
-        assert comp["import_from_base"] is True
+    for enum_name, comp in report.enum_comparison.items():
+        assert comp.identical_to_base is True, f"{enum_name} not identical to itself"
+        assert comp.import_from_base is True
 
 
 def test_enum_comparison_detects_new_values_between_versions():
@@ -55,11 +55,11 @@ def test_enum_comparison_detects_new_values_between_versions():
     )
 
     at_least_one_different = False
-    for enum_name, comp in report["enum_comparison"].items():
-        if comp["identical_to_base"] is False:
+    for enum_name, comp in report.enum_comparison.items():
+        if comp.identical_to_base is False:
             at_least_one_different = True
-            assert comp["new_values"], f"{enum_name} different but no new values listed"
-            assert comp["import_from_base"] is False
+            assert comp.new_values, f"{enum_name} different but no new values listed"
+            assert comp.import_from_base is False
     # At least one enum should have grown between 4.4.1 and 4.6.2
     assert at_least_one_different, "No enum changes detected between 4.4.1 and 4.6.2"
 
@@ -74,9 +74,9 @@ def test_enum_comparison_new_values_are_subset_of_full_set():
         new_data, base_enum_values=base_enums, version="v4_6_2"
     )
 
-    for enum_name, comp in report["enum_comparison"].items():
-        if comp["new_values"]:
-            new_set = set(comp["new_values"])
+    for enum_name, comp in report.enum_comparison.items():
+        if comp.new_values:
+            new_set = set(comp.new_values)
             assert new_set <= new_enums[enum_name], (
                 f"{enum_name} new_values not in full set"
             )

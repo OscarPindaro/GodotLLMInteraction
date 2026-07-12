@@ -7,6 +7,8 @@ imported by test modules. This file only provides pytest fixtures.
 from __future__ import annotations
 
 import json
+import shutil
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +16,27 @@ from tests.e2e._helpers import (
     dump_extension_api,
     godot_binary_path,
 )
+
+SCENES_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "scenes"
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _clean_godot_cache():
+    """Remove .godot/ cache dirs from scene fixture projects before tests.
+
+    Ensures tests always run from a clean state (auto-import happens
+    fresh each session via the check_scene helper).
+    """
+    if SCENES_DATA_DIR.is_dir():
+        for cache_dir in SCENES_DATA_DIR.glob("*/.godot"):
+            if cache_dir.is_dir():
+                shutil.rmtree(cache_dir)
+    yield
+    # Clean up after tests too
+    if SCENES_DATA_DIR.is_dir():
+        for cache_dir in SCENES_DATA_DIR.glob("*/.godot"):
+            if cache_dir.is_dir():
+                shutil.rmtree(cache_dir)
 
 
 @pytest.fixture

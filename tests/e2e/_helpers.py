@@ -92,3 +92,35 @@ def dump_extension_api(binary: str, out_dir: Path) -> Path:
             f"{result.stderr}"
         )
     return dump_path
+
+
+def import_project(binary: str, project_dir: Path) -> None:
+    """Run Godot --headless --import to generate .godot/ and .import files."""
+    subprocess.run(
+        [binary, "--headless", "--import", "--quit", "--path", str(project_dir)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+
+def check_scene(
+    binary: str, project_dir: Path, scene_name: str
+) -> subprocess.CompletedProcess:
+    """Run Godot --check-only on a scene, importing the project first if needed."""
+    if not (project_dir / ".godot").exists():
+        import_project(binary, project_dir)
+    return subprocess.run(
+        [
+            binary,
+            "--headless",
+            "--check-only",
+            "--path",
+            str(project_dir),
+            "--quit",
+            scene_name,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )

@@ -4,6 +4,9 @@ import importlib
 import json
 import keyword
 import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -1500,15 +1503,23 @@ def add_version(
         ),
     ],
     api_json: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--api",
             "-a",
-            help="Path to extension_api.json.",
+            help="Path to extension_api.json. If omitted, --godot-version must be set.",
             exists=True,
             dir_okay=False,
         ),
-    ] = Path("extension_api.json"),
+    ] = None,
+    godot_version: Annotated[
+        str | None,
+        typer.Option(
+            "--godot-version",
+            help="Godot version to dump from (e.g. '4.5.0'). Uses godotctl to find the binary. "
+            "If set, --api is not needed.",
+        ),
+    ] = None,
     base_version: Annotated[
         str | None,
         typer.Option(
@@ -1532,7 +1543,7 @@ def add_version(
         ),
     ] = None,
 ) -> None:
-    """Orchestrate the full version-addition workflow: diff, generate spec.py, sync enums, generate code."""
+    """Orchestrate the full version-addition workflow: dump API (optional), diff, generate spec.py, sync enums, generate code."""
     if not _VERSION_RE.match(version):
         print_error(f"Invalid version {version!r}; expected a format like 'v4_4_0'.")
         raise typer.Exit(code=EXIT_USAGE)
@@ -1549,7 +1560,43 @@ def add_version(
         )
         raise typer.Exit(code=EXIT_USAGE)
 
-    data = json.loads(api_json.read_text())
+    if api_json is None and godot_version is None:
+        print_error("Either --api or --godot-version must be provided.")
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if api_json is not None and godot_version is not None:
+        print_error("--api and --godot-version are mutually exclusive.")
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if godot_version is not None:
+        binary_name = f"godot-{godot_version}-stable"
+        binary = shutil.which(binary_name)
+        if binary is None:
+            print_error(
+                f"Could not find Godot binary {binary_name!r} on PATH. "
+                "Install it with godotctl or pass --api with a pre-dumped JSON."
+            )
+            raise typer.Exit(code=EXIT_ERROR)
+
+        print_text(f"Dumping extension_api.json from {binary}...")
+        tmpdir = tempfile.mkdtemp()
+        result = subprocess.run(
+            [binary, "--headless", "--dump-extension-api", "--quit"],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        dump_path = Path(tmpdir) / "extension_api.json"
+        if result.returncode != 0 or not dump_path.exists():
+            print_error(
+                f"Godot failed to dump extension_api.json (exit {result.returncode}):\n"
+                f"{result.stderr}"
+            )
+            raise typer.Exit(code=EXIT_ERROR)
+        api_json = dump_path
+
+    data = json.loads(api_json.read_text())  # type: ignore[union-attr]
 
     base_enum_values: dict[str, set[str]] | None = None
     if base_version is not None:

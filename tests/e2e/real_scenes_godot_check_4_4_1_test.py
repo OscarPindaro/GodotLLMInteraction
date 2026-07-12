@@ -1,6 +1,6 @@
 """E2e test: verify real .tscn scenes pass Godot's --check-only validation.
 
-Uses the 4.4.0 Godot binary to check scenes from the open-rpg 4.4.0 project.
+Uses the 4.4.1 Godot binary to check scenes from the open-rpg 4.4.1 project.
 This validates that the scenes are not just parseable by our Python parser,
 but are actually valid Godot scenes that can be loaded by the engine.
 
@@ -16,7 +16,7 @@ import pytest
 
 from tests.e2e._helpers import check_scene, godot_binary_path
 
-SCENES_DIR = Path(__file__).resolve().parents[1] / "data" / "scenes" / "open_rpg_4_4_0"
+SCENES_DIR = Path(__file__).resolve().parents[1] / "data" / "scenes" / "open_rpg_4_4_1"
 
 SCENE_NAMES = [
     "CombatAI.tscn",
@@ -28,11 +28,11 @@ SCENE_NAMES = [
 
 
 @pytest.mark.parametrize("scene_name", SCENE_NAMES)
-def test_godot_check_only_on_real_scene(scene_name):
+def test_godot_check_only_on_real_scene_4_4_1(scene_name):
     """Godot --check-only should pass on each real scene."""
-    binary = godot_binary_path("4.4.0")
+    binary = godot_binary_path("4.4.1")
     if binary is None:
-        pytest.skip("Godot 4.4.0 binary not installed")
+        pytest.skip("Godot 4.4.1 binary not installed")
 
     scene_path = SCENES_DIR / scene_name
     if not scene_path.exists():

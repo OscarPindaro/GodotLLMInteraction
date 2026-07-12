@@ -37,7 +37,7 @@ def test_schema_diff_yields_no_new_sections_for_same_version():
     """Diffing a version against itself should report no new top-level sections."""
     data = _load_api("4.4.1")
     report = compute_schema_diff(data, version="v4_4_1", base_version="v4_4_1")
-    assert report["new_top_level_sections"] == []
+    assert report.new_top_level_sections == []
 
 
 def test_schema_diff_report_is_valid_yaml():
@@ -74,10 +74,10 @@ def test_schema_diff_between_versions_detects_enum_changes():
         new_data, base_enum_values=base_enums, version="v4_6_2", base_version="v4_4_1"
     )
 
-    for enum_name in report["enum_comparison"]:
-        comp = report["enum_comparison"][enum_name]
-        if comp["identical_to_base"] is False:
-            assert len(comp["new_values"]) > 0, (
+    for enum_name in report.enum_comparison:
+        comp = report.enum_comparison[enum_name]
+        if comp.identical_to_base is False:
+            assert len(comp.new_values) > 0, (
                 f"{enum_name} marked different but no new values"
             )
 
@@ -86,4 +86,4 @@ def test_schema_diff_requires_human_intervention_flag_is_boolean():
     """The requires_human_intervention flag must be a boolean."""
     data = _load_api("4.4.1")
     report = compute_schema_diff(data, version="v4_4_1")
-    assert isinstance(report["requires_human_intervention"], bool)
+    assert isinstance(report.requires_human_intervention, bool)
