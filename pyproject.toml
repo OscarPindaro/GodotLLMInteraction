@@ -16,6 +16,10 @@ dependencies = [
     "typer>=0.26.8",
 ]
 
+[project.optional-dependencies]
+mcp = ["mcp>=1.0,<2.0"]
+kb = ["model2vec>=0.4.0", "numpy>=1.24.0"]
+
 [project.scripts]
 gli = "godotllminteraction.cli:cli"
 
