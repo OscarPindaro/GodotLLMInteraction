@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.e2e.conftest import discover_all_versions, installed_godot_versions
+from tests.e2e._helpers import discover_all_versions, installed_godot_versions
 
 EXPECTED_SECTIONS = {
     "header",

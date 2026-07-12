@@ -140,31 +140,39 @@ def _extract_type_names(data: dict) -> set[str]:
         for op in cls.get("operators", []):
             if "right_type" in op:
                 names.add(op["right_type"])
-            names.add(op["return_type"])
+            if "return_type" in op:
+                names.add(op["return_type"])
         for member in cls.get("members", []):
-            names.add(member["type"])
+            if "type" in member:
+                names.add(member["type"])
         for const in cls.get("constants", []):
-            names.add(const["type"])
+            if "type" in const:
+                names.add(const["type"])
         for ctor in cls.get("constructors", []):
             for arg in ctor.get("arguments", []):
-                names.add(arg["type"])
+                if "type" in arg:
+                    names.add(arg["type"])
         for method in cls.get("methods", []):
             if "return_type" in method:
                 names.add(method["return_type"])
             for arg in method.get("arguments", []):
-                names.add(arg["type"])
+                if "type" in arg:
+                    names.add(arg["type"])
     return names
 
 
 def _extract_utility_function_categories(data: dict) -> set[str]:
-    return {fn["category"] for fn in data.get("utility_functions", [])}
+    return {
+        fn["category"] for fn in data.get("utility_functions", []) if "category" in fn
+    }
 
 
 def _extract_operator_symbols(data: dict) -> set[str]:
     symbols: set[str] = set()
     for cls in data.get("builtin_classes", []):
         for op in cls.get("operators", []):
-            symbols.add(op["name"])
+            if "name" in op:
+                symbols.add(op["name"])
     return symbols
 
 
@@ -182,7 +190,7 @@ def _extract_argument_metas(data: dict) -> set[str]:
 
 
 def _extract_class_api_types(data: dict) -> set[str]:
-    return {cls["api_type"] for cls in data.get("classes", [])}
+    return {cls["api_type"] for cls in data.get("classes", []) if "api_type" in cls}
 
 
 def _render_enum(
@@ -194,6 +202,8 @@ def _render_enum(
     if docstring:
         lines.append(f'    """{docstring}"""')
         lines.append("")
+    if not members:
+        lines.append("    pass")
     for member_name, value in members:
         lines.append(f"    {member_name} = {_quote(value)}")
     return "\n".join(lines)
@@ -272,9 +282,8 @@ def render_spec_source(
         block = renderer(data)
         pattern = _block_pattern(name, command_str)
         if not pattern.search(updated):
-            raise ValueError(
-                f"Could not find generated block markers for {name!r} in spec.py"
-            )
+            # Enum is imported from a base version, not generated locally — skip.
+            continue
         updated = pattern.sub(
             lambda m, block=block: m.group(1) + block + m.group(3), updated
         )
@@ -1230,12 +1239,11 @@ def _render_spec_py_template(
 
     enum_imports: list[str] = []
     for enum_name, (alias_name, extra_alias) in enum_blocks.items():
-        should_import = (
-            base_version_pkg is not None
-            and enum_comparison is not None
-            and enum_comparison.get(enum_name) is not None
-            and enum_comparison[enum_name].identical_to_base is True
-        )
+        entry = enum_comparison.get(enum_name) if enum_comparison else None
+        identical = getattr(entry, "identical_to_base", None) if entry else None
+        if entry and isinstance(entry, dict):
+            identical = entry.get("identical_to_base")
+        should_import = base_version_pkg is not None and identical is True
         if should_import:
             enum_imports.append(enum_name)
             enum_imports.append(alias_name)

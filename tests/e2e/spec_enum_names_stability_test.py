@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from godotllminteraction.specifications.schema_diff import extract_enum_values
-from tests.e2e.conftest import discover_all_versions, installed_godot_versions
+from tests.e2e._helpers import discover_all_versions, installed_godot_versions
 
 EXPECTED_ENUM_NAMES = {
     "GodotTypeNameEnum",

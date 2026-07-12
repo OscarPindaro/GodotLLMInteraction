@@ -12,7 +12,7 @@ repos:
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: name-tests-test
-        exclude: "conftest\\.py$"
+        exclude: "conftest\\.py$|_helpers\\.py$"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.1
@@ -25,4 +25,6 @@ repos:
     rev: 4.5.0
     hooks:
       - id: gdlint
+        exclude: "^tests/data/"
       - id: gdformat
+        exclude: "^tests/data/"

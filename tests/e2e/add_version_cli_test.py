@@ -16,7 +16,7 @@ from typer.testing import CliRunner
 
 from godotllminteraction.cli import app
 
-from tests.e2e.conftest import discover_all_versions, installed_godot_versions
+from tests.e2e._helpers import discover_all_versions, installed_godot_versions
 
 runner = CliRunner()
 
@@ -62,7 +62,9 @@ COMPLETE_FAKE_API = {
             "is_refcounted": True,
             "is_instantiable": True,
             "api_type": "core",
-            "properties": [{"name": "position", "type": "Vector2"}],
+            "properties": [
+                {"name": "position", "type": "Vector2", "getter": "get_position"}
+            ],
         },
     ],
     "singletons": [],

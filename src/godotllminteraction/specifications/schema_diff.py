@@ -227,31 +227,39 @@ def _extract_type_names(data: dict) -> set[str]:
         for op in cls.get("operators", []):
             if "right_type" in op:
                 names.add(op["right_type"])
-            names.add(op["return_type"])
+            if "return_type" in op:
+                names.add(op["return_type"])
         for member in cls.get("members", []):
-            names.add(member["type"])
+            if "type" in member:
+                names.add(member["type"])
         for const in cls.get("constants", []):
-            names.add(const["type"])
+            if "type" in const:
+                names.add(const["type"])
         for ctor in cls.get("constructors", []):
             for arg in ctor.get("arguments", []):
-                names.add(arg["type"])
+                if "type" in arg:
+                    names.add(arg["type"])
         for method in cls.get("methods", []):
             if "return_type" in method:
                 names.add(method["return_type"])
             for arg in method.get("arguments", []):
-                names.add(arg["type"])
+                if "type" in arg:
+                    names.add(arg["type"])
     return names
 
 
 def _extract_utility_function_categories(data: dict) -> set[str]:
-    return {fn["category"] for fn in data.get("utility_functions", [])}
+    return {
+        fn["category"] for fn in data.get("utility_functions", []) if "category" in fn
+    }
 
 
 def _extract_operator_symbols(data: dict) -> set[str]:
     symbols: set[str] = set()
     for cls in data.get("builtin_classes", []):
         for op in cls.get("operators", []):
-            symbols.add(op["name"])
+            if "name" in op:
+                symbols.add(op["name"])
     return symbols
 
 
@@ -268,7 +276,7 @@ def _extract_argument_metas(data: dict) -> set[str]:
 
 
 def _extract_class_api_types(data: dict) -> set[str]:
-    return {cls["api_type"] for cls in data.get("classes", [])}
+    return {cls["api_type"] for cls in data.get("classes", []) if "api_type" in cls}
 
 
 # --- Diff computation -------------------------------------------------------

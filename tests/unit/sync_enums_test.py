@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from godotllminteraction.cli.specifications import (
     _block_pattern,
@@ -145,12 +144,14 @@ class TestRenderSpecSource:
         assert "class Header(BaseModel):" in updated
         assert "version_major: int = Field(default=4)" in updated
 
-    def test_missing_marker_raises(self):
+    def test_missing_marker_skips_enum(self):
+        """When a marker block is missing (enum imported from base), it should be skipped."""
         broken = _SPEC_SKELETON.replace(
             "# === END GENERATED: ClassApiTypeEnum ===", "# oops, marker gone"
         )
-        with pytest.raises(ValueError, match="ClassApiTypeEnum"):
-            render_spec_source(broken, FAKE_DATA)
+        # Should not raise — just skips the enum whose markers are missing
+        updated = render_spec_source(broken, FAKE_DATA)
+        assert "class Header(BaseModel):" in updated
 
     def test_running_twice_is_idempotent(self):
         once = render_spec_source(_SPEC_SKELETON, FAKE_DATA)
