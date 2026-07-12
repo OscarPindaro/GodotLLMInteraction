@@ -1,6 +1,6 @@
 """Integration test: KB index persistence and search consistency.
 
-Uses the REAL model2vec model (minishlab/potion-base-2M-v1) to verify:
+Uses the REAL model2vec model (minishlab/potion-code-16M) to verify:
 1. Index is saved to disk and persists across calls.
 2. Embeddings loaded from disk are byte-identical to what was saved.
 3. A query produces the same similarity scores whether computed in-memory

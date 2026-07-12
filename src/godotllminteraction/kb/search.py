@@ -20,7 +20,7 @@ def _get_model():
     if _model is None:
         from model2vec import StaticModel
 
-        _model = StaticModel.from_pretrained("minishlab/potion-base-2M")
+        _model = StaticModel.from_pretrained("minishlab/potion-code-16M")
     return _model
 
 
