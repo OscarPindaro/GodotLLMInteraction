@@ -7,6 +7,8 @@ import pytest
 from godotllminteraction.tscn.parser import parse_scene
 from godotllminteraction.tscn.writer import dump_scene
 
+pytestmark = [pytest.mark.tscn]
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURES = sorted((_REPO_ROOT / "tests" / "data" / "scenes").glob("*.tscn"))
 # Secondary, non-load-bearing coverage: whatever scenes the surrounding repo

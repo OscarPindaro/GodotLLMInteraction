@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import pytest
 
 from godotllminteraction.cli.specifications import (
     _block_pattern,
     render_spec_source,
 )
+
+pytestmark = [pytest.mark.specs]
 
 FAKE_DATA = {
     "utility_functions": [

@@ -3,7 +3,7 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-uv sync
+uv sync  --all-extras
 if ! uv tool list 2>/dev/null | grep -q '^semble '; then
   uv tool install semble
 fi

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from godotllminteraction.tscn.parser import parse_scene
 from godotllminteraction.tscn.tree import build_tree, render_tree
+
+pytestmark = [pytest.mark.tscn]
 
 _SCENES = Path(__file__).resolve().parents[2] / "tests" / "data" / "scenes"
 

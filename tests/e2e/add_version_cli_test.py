@@ -19,6 +19,8 @@ from tests.e2e._helpers import discover_all_versions, installed_godot_versions
 
 runner = CliRunner()
 
+pytestmark = [pytest.mark.cli, pytest.mark.specs]
+
 COMPLETE_FAKE_API = {
     "header": {
         "version_major": 4,

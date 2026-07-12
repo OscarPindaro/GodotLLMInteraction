@@ -22,6 +22,8 @@ from godotllminteraction.tscn import (
     parse_scene,
 )
 
+pytestmark = [pytest.mark.tscn]
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 

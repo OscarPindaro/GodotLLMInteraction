@@ -6,6 +6,8 @@ import pytest
 
 from tests.e2e._helpers import discover_all_versions, installed_godot_versions
 
+pytestmark = [pytest.mark.specs]
+
 EXPECTED_SECTIONS = {
     "header",
     "builtin_class_sizes",

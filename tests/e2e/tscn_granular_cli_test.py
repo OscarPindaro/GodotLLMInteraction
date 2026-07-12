@@ -5,11 +5,15 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+import pytest
+
 from godotllminteraction.cli import app
 
 _SCENES = Path(__file__).resolve().parents[2] / "tests" / "data" / "scenes"
 
 runner = CliRunner()
+
+pytestmark = [pytest.mark.cli, pytest.mark.tscn]
 
 
 def workspace(tmp_path: Path, fixture: str = "connections.tscn") -> Path:

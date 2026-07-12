@@ -26,6 +26,8 @@ from godotllminteraction.tscn.values import (
     values_equal,
 )
 
+pytestmark = [pytest.mark.tscn]
+
 
 def roundtrip(text: str) -> str:
     return format_value(parse_value(text))

@@ -16,6 +16,8 @@ import pytest
 
 from tests.e2e._helpers import check_scene, godot_binary_path
 
+pytestmark = [pytest.mark.tscn]
+
 SCENES_DIR = Path(__file__).resolve().parents[1] / "data" / "scenes" / "open_rpg_4_6_0"
 
 SCENE_NAMES = [

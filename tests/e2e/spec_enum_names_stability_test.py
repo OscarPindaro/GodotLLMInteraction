@@ -7,6 +7,8 @@ import pytest
 from godotllminteraction.specifications.schema_diff import extract_enum_values
 from tests.e2e._helpers import discover_all_versions, installed_godot_versions
 
+pytestmark = [pytest.mark.specs]
+
 EXPECTED_ENUM_NAMES = {
     "GodotTypeNameEnum",
     "UtilityFunctionCategoryEnum",

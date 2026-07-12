@@ -118,8 +118,8 @@ def _index_sidecar_path(kb_folder: Path) -> Path:
 
 def load_index(kb_folder: Path) -> tuple[np.ndarray, list[tuple[str, int]]] | None:
     """Load the pre-embedded index.
-    gfit
-        Returns (embeddings_matrix, mapping) where mapping[i] = (entry_id, question_index).
+
+    Returns (embeddings_matrix, mapping) where mapping[i] = (entry_id, question_index).
         Returns None if no index exists.
     """
     idx = index_path(kb_folder)

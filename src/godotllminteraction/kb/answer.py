@@ -67,7 +67,8 @@ def _fetch_url(url: str) -> str:
 def _fetch_github_blob(owner: str, repo: str, branch: str, path: str) -> str:
     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
     content = _fetch_url(raw_url)
-    return f"<github:{owner}/{repo}/blob/{branch}/{path}>\n{content}"
+    source_url = f"https://github.com/{owner}/{repo}/blob/{branch}/{path}"
+    return f"<{source_url}>\n{content}"
 
 
 def _fetch_github_tree(owner: str, repo: str, branch: str, path: str) -> str:
@@ -101,7 +102,8 @@ def _fetch_github_tree(owner: str, repo: str, branch: str, path: str) -> str:
         if not download_url:
             continue
         content = _fetch_url(download_url)
-        parts.append(f"<github:{owner}/{repo}/blob/{branch}/{path}/{name}>\n{content}")
+        source_url = f"https://github.com/{owner}/{repo}/blob/{branch}/{path}/{name}"
+        parts.append(f"<{source_url}>\n{content}")
 
     return "\n---\n".join(parts)
 

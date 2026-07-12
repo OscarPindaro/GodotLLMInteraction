@@ -10,6 +10,8 @@ from godotllminteraction.cli import app
 
 runner = CliRunner()
 
+pytestmark = [pytest.mark.cli, pytest.mark.specs]
+
 FAKE_API = {
     "builtin_classes": [
         {

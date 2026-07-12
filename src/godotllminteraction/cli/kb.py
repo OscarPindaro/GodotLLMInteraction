@@ -137,8 +137,8 @@ def search(
             print_text(f"[{r.score:.3f}] {r.matched_question}\n  answer: {preview}")
 
 
-@app.command()
-def list(
+@app.command(name="list")
+def list_entries_cmd(
     project: Annotated[
         Path,
         typer.Option("--project", "-p", help="Project directory; defaults to cwd."),

@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.specs]
+
 SPECIFICATIONS_ROOT = (
     Path(__file__).resolve().parents[2]
     / "src"

@@ -128,6 +128,8 @@ def add_instructions(path: Path) -> bool:
     if GLI_START in existing:
         start = existing.index(GLI_START)
         end = existing.index(GLI_END) + len(GLI_END)
+        if end < len(existing) and existing[end] == "\n":
+            end += 1
         new = existing[:start] + _INSTRUCTIONS_MD + existing[end:]
     else:
         new = (
