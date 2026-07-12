@@ -311,6 +311,14 @@ def compute_schema_diff(
                 )
 
         for key in sorted(model_k - json_k):
+            # Only flag removals for paths we actually observed in the JSON.
+            # If a path isn't in json_keys, the section is either absent entirely
+            # or is an empty list — neither means fields were removed.
+            if path not in json_keys:
+                continue
+            # Skip if the JSON path exists but has no observed keys (empty list).
+            if not json_k:
+                continue
             field_path = f"{path}.{key}" if path else key
             model = _get_model_for_path(path)
             is_optional = False

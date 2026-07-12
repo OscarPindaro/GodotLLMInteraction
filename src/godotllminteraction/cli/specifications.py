@@ -1233,7 +1233,8 @@ def _render_spec_py_template(
         should_import = (
             base_version_pkg is not None
             and enum_comparison is not None
-            and enum_comparison.get(enum_name, {}).get("identical_to_base") is True
+            and enum_comparison.get(enum_name) is not None
+            and enum_comparison[enum_name].identical_to_base is True
         )
         if should_import:
             enum_imports.append(enum_name)
