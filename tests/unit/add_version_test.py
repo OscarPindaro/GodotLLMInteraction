@@ -132,6 +132,8 @@ class TestAddVersionCliValidation:
                 "v4_4_1",
                 "--api",
                 str(api_path),
+                "--specs-root",
+                str(tmp_path / "specs"),
             ],
         )
         assert result.exit_code != 0
@@ -150,6 +152,8 @@ class TestAddVersionCliValidation:
                 "--api",
                 str(api_path),
                 "--first-version",
+                "--specs-root",
+                str(tmp_path / "specs"),
             ],
         )
         # Will fail later (no complete API data) but should pass the base-version check
@@ -168,6 +172,8 @@ class TestAddVersionCliValidation:
                 "--api",
                 str(api_path),
                 "--first-version",
+                "--specs-root",
+                str(tmp_path / "specs"),
             ],
         )
         assert result.exit_code != 0
@@ -187,6 +193,8 @@ class TestAddVersionCliValidation:
                 str(api_path),
                 "--base-version",
                 "invalid",
+                "--specs-root",
+                str(tmp_path / "specs"),
             ],
         )
         assert result.exit_code != 0

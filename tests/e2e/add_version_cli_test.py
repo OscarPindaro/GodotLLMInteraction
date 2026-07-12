@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -84,8 +83,7 @@ def specifications_root(tmp_path: Path):
     root = tmp_path / "specifications"
     root.mkdir()
     (root / "__init__.py").write_text("")
-    with patch("godotllminteraction.cli.specifications._SPECIFICATIONS_ROOT", root):
-        yield root
+    return root
 
 
 def test_add_version_first_version(complete_api_json_path, specifications_root):
@@ -100,6 +98,8 @@ def test_add_version_first_version(complete_api_json_path, specifications_root):
             "--api",
             str(complete_api_json_path),
             "--first-version",
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -129,6 +129,8 @@ def test_add_version_with_base_version(complete_api_json_path, specifications_ro
             "--api",
             str(complete_api_json_path),
             "--first-version",
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -144,6 +146,8 @@ def test_add_version_with_base_version(complete_api_json_path, specifications_ro
             str(complete_api_json_path),
             "--base-version",
             "v4_4_0",
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -168,6 +172,8 @@ def test_add_version_requires_base_version_or_first(
             "v4_4_1",
             "--api",
             str(complete_api_json_path),
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code != 0
@@ -186,6 +192,8 @@ def test_add_version_test_guidance_output(complete_api_json_path, specifications
             "--api",
             str(complete_api_json_path),
             "--first-version",
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -212,21 +220,20 @@ def test_add_version_with_real_godot_dump(
 
     version_pkg = "v" + version.replace(".", "_")
 
-    with patch(
-        "godotllminteraction.cli.specifications._SPECIFICATIONS_ROOT", specs_root
-    ):
-        result = runner.invoke(
-            app,
-            [
-                "specifications",
-                "add-version",
-                "--version",
-                version_pkg,
-                "--api",
-                str(api_path),
-                "--first-version",
-            ],
-        )
+    result = runner.invoke(
+        app,
+        [
+            "specifications",
+            "add-version",
+            "--version",
+            version_pkg,
+            "--api",
+            str(api_path),
+            "--first-version",
+            "--specs-root",
+            str(specs_root),
+        ],
+    )
 
     assert result.exit_code == 0, result.output
     assert (specs_root / version_pkg / "spec.py").exists()

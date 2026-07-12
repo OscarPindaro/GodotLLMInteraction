@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -45,8 +44,7 @@ def api_json_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def specifications_root(tmp_path: Path):
     root = tmp_path / "specifications"
-    with patch("godotllminteraction.cli.specifications._SPECIFICATIONS_ROOT", root):
-        yield root
+    return root
 
 
 def test_generate_all_skips_enum_sync_when_spec_py_missing(
@@ -61,6 +59,8 @@ def test_generate_all_skips_enum_sync_when_spec_py_missing(
             "v9_9_9",
             "--api",
             str(api_json_path),
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -80,6 +80,8 @@ def test_generate_all_produces_working_package(api_json_path, specifications_roo
             "v9_9_9",
             "--api",
             str(api_json_path),
+            "--specs-root",
+            str(specifications_root),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -100,6 +102,8 @@ def test_generate_all_check_mode_reports_stale_then_passes(
         "--api",
         str(api_json_path),
         "--check",
+        "--specs-root",
+        str(specifications_root),
     ]
     missing_result = runner.invoke(app, check_args)
     assert missing_result.exit_code != 0
@@ -113,6 +117,8 @@ def test_generate_all_check_mode_reports_stale_then_passes(
             "v9_9_9",
             "--api",
             str(api_json_path),
+            "--specs-root",
+            str(specifications_root),
         ],
     )
 

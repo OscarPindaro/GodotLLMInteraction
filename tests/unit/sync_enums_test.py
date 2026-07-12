@@ -144,7 +144,7 @@ class TestRenderSpecSource:
         assert "class Header(BaseModel):" in updated
         assert "version_major: int = Field(default=4)" in updated
 
-    def test_missing_marker_skips_enum(self):
+    def test_missing_marker_skips_enum_silently(self):
         """When a marker block is missing (enum imported from base), it should be skipped."""
         broken = _SPEC_SKELETON.replace(
             "# === END GENERATED: ClassApiTypeEnum ===", "# oops, marker gone"
@@ -152,6 +152,24 @@ class TestRenderSpecSource:
         # Should not raise — just skips the enum whose markers are missing
         updated = render_spec_source(broken, FAKE_DATA)
         assert "class Header(BaseModel):" in updated
+
+    def test_missing_marker_does_not_skip_other_enums(self):
+        """A missing marker for one enum must not prevent the others from being updated."""
+        broken = _SPEC_SKELETON.replace(
+            "# === END GENERATED: ClassApiTypeEnum ===", "# oops, marker gone"
+        )
+        updated = render_spec_source(broken, FAKE_DATA)
+        # The 4 enums with intact markers should still be refreshed
+        assert 'VECTOR2 = "Vector2"' in updated
+        assert 'MATH = "math"' in updated
+        assert 'EQUAL = "=="' in updated
+        assert 'DOUBLE = "double"' in updated
+        # The broken enum's stale content should be left untouched (not deleted)
+        broken_section = updated.split("class Header")[0]
+        assert (
+            'STALE = "stale"'
+            in broken_section.split("# === GENERATED: ClassApiTypeEnum")[1]
+        )
 
     def test_running_twice_is_idempotent(self):
         once = render_spec_source(_SPEC_SKELETON, FAKE_DATA)

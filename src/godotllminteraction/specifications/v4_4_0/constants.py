@@ -13,4 +13,1533 @@ class GodotConstant:
     raw_value: str
 
 
-BY_GODOT_NAME = {}
+BASIS_FLIP_X = GodotConstant(
+    class_name="Basis",
+    name="FLIP_X",
+    type="Basis",
+    raw_value="Basis(-1, 0, 0, 0, 1, 0, 0, 0, 1)",
+)
+
+BASIS_FLIP_Y = GodotConstant(
+    class_name="Basis",
+    name="FLIP_Y",
+    type="Basis",
+    raw_value="Basis(1, 0, 0, 0, -1, 0, 0, 0, 1)",
+)
+
+BASIS_FLIP_Z = GodotConstant(
+    class_name="Basis",
+    name="FLIP_Z",
+    type="Basis",
+    raw_value="Basis(1, 0, 0, 0, 1, 0, 0, 0, -1)",
+)
+
+BASIS_IDENTITY = GodotConstant(
+    class_name="Basis",
+    name="IDENTITY",
+    type="Basis",
+    raw_value="Basis(1, 0, 0, 0, 1, 0, 0, 0, 1)",
+)
+
+COLOR_ALICE_BLUE = GodotConstant(
+    class_name="Color",
+    name="ALICE_BLUE",
+    type="Color",
+    raw_value="Color(0.941176, 0.972549, 1, 1)",
+)
+
+COLOR_ANTIQUE_WHITE = GodotConstant(
+    class_name="Color",
+    name="ANTIQUE_WHITE",
+    type="Color",
+    raw_value="Color(0.980392, 0.921569, 0.843137, 1)",
+)
+
+COLOR_AQUA = GodotConstant(
+    class_name="Color", name="AQUA", type="Color", raw_value="Color(0, 1, 1, 1)"
+)
+
+COLOR_AQUAMARINE = GodotConstant(
+    class_name="Color",
+    name="AQUAMARINE",
+    type="Color",
+    raw_value="Color(0.498039, 1, 0.831373, 1)",
+)
+
+COLOR_AZURE = GodotConstant(
+    class_name="Color", name="AZURE", type="Color", raw_value="Color(0.941176, 1, 1, 1)"
+)
+
+COLOR_BEIGE = GodotConstant(
+    class_name="Color",
+    name="BEIGE",
+    type="Color",
+    raw_value="Color(0.960784, 0.960784, 0.862745, 1)",
+)
+
+COLOR_BISQUE = GodotConstant(
+    class_name="Color",
+    name="BISQUE",
+    type="Color",
+    raw_value="Color(1, 0.894118, 0.768627, 1)",
+)
+
+COLOR_BLACK = GodotConstant(
+    class_name="Color", name="BLACK", type="Color", raw_value="Color(0, 0, 0, 1)"
+)
+
+COLOR_BLANCHED_ALMOND = GodotConstant(
+    class_name="Color",
+    name="BLANCHED_ALMOND",
+    type="Color",
+    raw_value="Color(1, 0.921569, 0.803922, 1)",
+)
+
+COLOR_BLUE = GodotConstant(
+    class_name="Color", name="BLUE", type="Color", raw_value="Color(0, 0, 1, 1)"
+)
+
+COLOR_BLUE_VIOLET = GodotConstant(
+    class_name="Color",
+    name="BLUE_VIOLET",
+    type="Color",
+    raw_value="Color(0.541176, 0.168627, 0.886275, 1)",
+)
+
+COLOR_BROWN = GodotConstant(
+    class_name="Color",
+    name="BROWN",
+    type="Color",
+    raw_value="Color(0.647059, 0.164706, 0.164706, 1)",
+)
+
+COLOR_BURLYWOOD = GodotConstant(
+    class_name="Color",
+    name="BURLYWOOD",
+    type="Color",
+    raw_value="Color(0.870588, 0.721569, 0.529412, 1)",
+)
+
+COLOR_CADET_BLUE = GodotConstant(
+    class_name="Color",
+    name="CADET_BLUE",
+    type="Color",
+    raw_value="Color(0.372549, 0.619608, 0.627451, 1)",
+)
+
+COLOR_CHARTREUSE = GodotConstant(
+    class_name="Color",
+    name="CHARTREUSE",
+    type="Color",
+    raw_value="Color(0.498039, 1, 0, 1)",
+)
+
+COLOR_CHOCOLATE = GodotConstant(
+    class_name="Color",
+    name="CHOCOLATE",
+    type="Color",
+    raw_value="Color(0.823529, 0.411765, 0.117647, 1)",
+)
+
+COLOR_CORAL = GodotConstant(
+    class_name="Color",
+    name="CORAL",
+    type="Color",
+    raw_value="Color(1, 0.498039, 0.313726, 1)",
+)
+
+COLOR_CORNFLOWER_BLUE = GodotConstant(
+    class_name="Color",
+    name="CORNFLOWER_BLUE",
+    type="Color",
+    raw_value="Color(0.392157, 0.584314, 0.929412, 1)",
+)
+
+COLOR_CORNSILK = GodotConstant(
+    class_name="Color",
+    name="CORNSILK",
+    type="Color",
+    raw_value="Color(1, 0.972549, 0.862745, 1)",
+)
+
+COLOR_CRIMSON = GodotConstant(
+    class_name="Color",
+    name="CRIMSON",
+    type="Color",
+    raw_value="Color(0.862745, 0.0784314, 0.235294, 1)",
+)
+
+COLOR_CYAN = GodotConstant(
+    class_name="Color", name="CYAN", type="Color", raw_value="Color(0, 1, 1, 1)"
+)
+
+COLOR_DARK_BLUE = GodotConstant(
+    class_name="Color",
+    name="DARK_BLUE",
+    type="Color",
+    raw_value="Color(0, 0, 0.545098, 1)",
+)
+
+COLOR_DARK_CYAN = GodotConstant(
+    class_name="Color",
+    name="DARK_CYAN",
+    type="Color",
+    raw_value="Color(0, 0.545098, 0.545098, 1)",
+)
+
+COLOR_DARK_GOLDENROD = GodotConstant(
+    class_name="Color",
+    name="DARK_GOLDENROD",
+    type="Color",
+    raw_value="Color(0.721569, 0.52549, 0.0431373, 1)",
+)
+
+COLOR_DARK_GRAY = GodotConstant(
+    class_name="Color",
+    name="DARK_GRAY",
+    type="Color",
+    raw_value="Color(0.662745, 0.662745, 0.662745, 1)",
+)
+
+COLOR_DARK_GREEN = GodotConstant(
+    class_name="Color",
+    name="DARK_GREEN",
+    type="Color",
+    raw_value="Color(0, 0.392157, 0, 1)",
+)
+
+COLOR_DARK_KHAKI = GodotConstant(
+    class_name="Color",
+    name="DARK_KHAKI",
+    type="Color",
+    raw_value="Color(0.741176, 0.717647, 0.419608, 1)",
+)
+
+COLOR_DARK_MAGENTA = GodotConstant(
+    class_name="Color",
+    name="DARK_MAGENTA",
+    type="Color",
+    raw_value="Color(0.545098, 0, 0.545098, 1)",
+)
+
+COLOR_DARK_OLIVE_GREEN = GodotConstant(
+    class_name="Color",
+    name="DARK_OLIVE_GREEN",
+    type="Color",
+    raw_value="Color(0.333333, 0.419608, 0.184314, 1)",
+)
+
+COLOR_DARK_ORANGE = GodotConstant(
+    class_name="Color",
+    name="DARK_ORANGE",
+    type="Color",
+    raw_value="Color(1, 0.54902, 0, 1)",
+)
+
+COLOR_DARK_ORCHID = GodotConstant(
+    class_name="Color",
+    name="DARK_ORCHID",
+    type="Color",
+    raw_value="Color(0.6, 0.196078, 0.8, 1)",
+)
+
+COLOR_DARK_RED = GodotConstant(
+    class_name="Color",
+    name="DARK_RED",
+    type="Color",
+    raw_value="Color(0.545098, 0, 0, 1)",
+)
+
+COLOR_DARK_SALMON = GodotConstant(
+    class_name="Color",
+    name="DARK_SALMON",
+    type="Color",
+    raw_value="Color(0.913725, 0.588235, 0.478431, 1)",
+)
+
+COLOR_DARK_SEA_GREEN = GodotConstant(
+    class_name="Color",
+    name="DARK_SEA_GREEN",
+    type="Color",
+    raw_value="Color(0.560784, 0.737255, 0.560784, 1)",
+)
+
+COLOR_DARK_SLATE_BLUE = GodotConstant(
+    class_name="Color",
+    name="DARK_SLATE_BLUE",
+    type="Color",
+    raw_value="Color(0.282353, 0.239216, 0.545098, 1)",
+)
+
+COLOR_DARK_SLATE_GRAY = GodotConstant(
+    class_name="Color",
+    name="DARK_SLATE_GRAY",
+    type="Color",
+    raw_value="Color(0.184314, 0.309804, 0.309804, 1)",
+)
+
+COLOR_DARK_TURQUOISE = GodotConstant(
+    class_name="Color",
+    name="DARK_TURQUOISE",
+    type="Color",
+    raw_value="Color(0, 0.807843, 0.819608, 1)",
+)
+
+COLOR_DARK_VIOLET = GodotConstant(
+    class_name="Color",
+    name="DARK_VIOLET",
+    type="Color",
+    raw_value="Color(0.580392, 0, 0.827451, 1)",
+)
+
+COLOR_DEEP_PINK = GodotConstant(
+    class_name="Color",
+    name="DEEP_PINK",
+    type="Color",
+    raw_value="Color(1, 0.0784314, 0.576471, 1)",
+)
+
+COLOR_DEEP_SKY_BLUE = GodotConstant(
+    class_name="Color",
+    name="DEEP_SKY_BLUE",
+    type="Color",
+    raw_value="Color(0, 0.74902, 1, 1)",
+)
+
+COLOR_DIM_GRAY = GodotConstant(
+    class_name="Color",
+    name="DIM_GRAY",
+    type="Color",
+    raw_value="Color(0.411765, 0.411765, 0.411765, 1)",
+)
+
+COLOR_DODGER_BLUE = GodotConstant(
+    class_name="Color",
+    name="DODGER_BLUE",
+    type="Color",
+    raw_value="Color(0.117647, 0.564706, 1, 1)",
+)
+
+COLOR_FIREBRICK = GodotConstant(
+    class_name="Color",
+    name="FIREBRICK",
+    type="Color",
+    raw_value="Color(0.698039, 0.133333, 0.133333, 1)",
+)
+
+COLOR_FLORAL_WHITE = GodotConstant(
+    class_name="Color",
+    name="FLORAL_WHITE",
+    type="Color",
+    raw_value="Color(1, 0.980392, 0.941176, 1)",
+)
+
+COLOR_FOREST_GREEN = GodotConstant(
+    class_name="Color",
+    name="FOREST_GREEN",
+    type="Color",
+    raw_value="Color(0.133333, 0.545098, 0.133333, 1)",
+)
+
+COLOR_FUCHSIA = GodotConstant(
+    class_name="Color", name="FUCHSIA", type="Color", raw_value="Color(1, 0, 1, 1)"
+)
+
+COLOR_GAINSBORO = GodotConstant(
+    class_name="Color",
+    name="GAINSBORO",
+    type="Color",
+    raw_value="Color(0.862745, 0.862745, 0.862745, 1)",
+)
+
+COLOR_GHOST_WHITE = GodotConstant(
+    class_name="Color",
+    name="GHOST_WHITE",
+    type="Color",
+    raw_value="Color(0.972549, 0.972549, 1, 1)",
+)
+
+COLOR_GOLD = GodotConstant(
+    class_name="Color", name="GOLD", type="Color", raw_value="Color(1, 0.843137, 0, 1)"
+)
+
+COLOR_GOLDENROD = GodotConstant(
+    class_name="Color",
+    name="GOLDENROD",
+    type="Color",
+    raw_value="Color(0.854902, 0.647059, 0.12549, 1)",
+)
+
+COLOR_GRAY = GodotConstant(
+    class_name="Color",
+    name="GRAY",
+    type="Color",
+    raw_value="Color(0.745098, 0.745098, 0.745098, 1)",
+)
+
+COLOR_GREEN = GodotConstant(
+    class_name="Color", name="GREEN", type="Color", raw_value="Color(0, 1, 0, 1)"
+)
+
+COLOR_GREEN_YELLOW = GodotConstant(
+    class_name="Color",
+    name="GREEN_YELLOW",
+    type="Color",
+    raw_value="Color(0.678431, 1, 0.184314, 1)",
+)
+
+COLOR_HONEYDEW = GodotConstant(
+    class_name="Color",
+    name="HONEYDEW",
+    type="Color",
+    raw_value="Color(0.941176, 1, 0.941176, 1)",
+)
+
+COLOR_HOT_PINK = GodotConstant(
+    class_name="Color",
+    name="HOT_PINK",
+    type="Color",
+    raw_value="Color(1, 0.411765, 0.705882, 1)",
+)
+
+COLOR_INDIAN_RED = GodotConstant(
+    class_name="Color",
+    name="INDIAN_RED",
+    type="Color",
+    raw_value="Color(0.803922, 0.360784, 0.360784, 1)",
+)
+
+COLOR_INDIGO = GodotConstant(
+    class_name="Color",
+    name="INDIGO",
+    type="Color",
+    raw_value="Color(0.294118, 0, 0.509804, 1)",
+)
+
+COLOR_IVORY = GodotConstant(
+    class_name="Color", name="IVORY", type="Color", raw_value="Color(1, 1, 0.941176, 1)"
+)
+
+COLOR_KHAKI = GodotConstant(
+    class_name="Color",
+    name="KHAKI",
+    type="Color",
+    raw_value="Color(0.941176, 0.901961, 0.54902, 1)",
+)
+
+COLOR_LAVENDER = GodotConstant(
+    class_name="Color",
+    name="LAVENDER",
+    type="Color",
+    raw_value="Color(0.901961, 0.901961, 0.980392, 1)",
+)
+
+COLOR_LAVENDER_BLUSH = GodotConstant(
+    class_name="Color",
+    name="LAVENDER_BLUSH",
+    type="Color",
+    raw_value="Color(1, 0.941176, 0.960784, 1)",
+)
+
+COLOR_LAWN_GREEN = GodotConstant(
+    class_name="Color",
+    name="LAWN_GREEN",
+    type="Color",
+    raw_value="Color(0.486275, 0.988235, 0, 1)",
+)
+
+COLOR_LEMON_CHIFFON = GodotConstant(
+    class_name="Color",
+    name="LEMON_CHIFFON",
+    type="Color",
+    raw_value="Color(1, 0.980392, 0.803922, 1)",
+)
+
+COLOR_LIGHT_BLUE = GodotConstant(
+    class_name="Color",
+    name="LIGHT_BLUE",
+    type="Color",
+    raw_value="Color(0.678431, 0.847059, 0.901961, 1)",
+)
+
+COLOR_LIGHT_CORAL = GodotConstant(
+    class_name="Color",
+    name="LIGHT_CORAL",
+    type="Color",
+    raw_value="Color(0.941176, 0.501961, 0.501961, 1)",
+)
+
+COLOR_LIGHT_CYAN = GodotConstant(
+    class_name="Color",
+    name="LIGHT_CYAN",
+    type="Color",
+    raw_value="Color(0.878431, 1, 1, 1)",
+)
+
+COLOR_LIGHT_GOLDENROD = GodotConstant(
+    class_name="Color",
+    name="LIGHT_GOLDENROD",
+    type="Color",
+    raw_value="Color(0.980392, 0.980392, 0.823529, 1)",
+)
+
+COLOR_LIGHT_GRAY = GodotConstant(
+    class_name="Color",
+    name="LIGHT_GRAY",
+    type="Color",
+    raw_value="Color(0.827451, 0.827451, 0.827451, 1)",
+)
+
+COLOR_LIGHT_GREEN = GodotConstant(
+    class_name="Color",
+    name="LIGHT_GREEN",
+    type="Color",
+    raw_value="Color(0.564706, 0.933333, 0.564706, 1)",
+)
+
+COLOR_LIGHT_PINK = GodotConstant(
+    class_name="Color",
+    name="LIGHT_PINK",
+    type="Color",
+    raw_value="Color(1, 0.713726, 0.756863, 1)",
+)
+
+COLOR_LIGHT_SALMON = GodotConstant(
+    class_name="Color",
+    name="LIGHT_SALMON",
+    type="Color",
+    raw_value="Color(1, 0.627451, 0.478431, 1)",
+)
+
+COLOR_LIGHT_SEA_GREEN = GodotConstant(
+    class_name="Color",
+    name="LIGHT_SEA_GREEN",
+    type="Color",
+    raw_value="Color(0.12549, 0.698039, 0.666667, 1)",
+)
+
+COLOR_LIGHT_SKY_BLUE = GodotConstant(
+    class_name="Color",
+    name="LIGHT_SKY_BLUE",
+    type="Color",
+    raw_value="Color(0.529412, 0.807843, 0.980392, 1)",
+)
+
+COLOR_LIGHT_SLATE_GRAY = GodotConstant(
+    class_name="Color",
+    name="LIGHT_SLATE_GRAY",
+    type="Color",
+    raw_value="Color(0.466667, 0.533333, 0.6, 1)",
+)
+
+COLOR_LIGHT_STEEL_BLUE = GodotConstant(
+    class_name="Color",
+    name="LIGHT_STEEL_BLUE",
+    type="Color",
+    raw_value="Color(0.690196, 0.768627, 0.870588, 1)",
+)
+
+COLOR_LIGHT_YELLOW = GodotConstant(
+    class_name="Color",
+    name="LIGHT_YELLOW",
+    type="Color",
+    raw_value="Color(1, 1, 0.878431, 1)",
+)
+
+COLOR_LIME = GodotConstant(
+    class_name="Color", name="LIME", type="Color", raw_value="Color(0, 1, 0, 1)"
+)
+
+COLOR_LIME_GREEN = GodotConstant(
+    class_name="Color",
+    name="LIME_GREEN",
+    type="Color",
+    raw_value="Color(0.196078, 0.803922, 0.196078, 1)",
+)
+
+COLOR_LINEN = GodotConstant(
+    class_name="Color",
+    name="LINEN",
+    type="Color",
+    raw_value="Color(0.980392, 0.941176, 0.901961, 1)",
+)
+
+COLOR_MAGENTA = GodotConstant(
+    class_name="Color", name="MAGENTA", type="Color", raw_value="Color(1, 0, 1, 1)"
+)
+
+COLOR_MAROON = GodotConstant(
+    class_name="Color",
+    name="MAROON",
+    type="Color",
+    raw_value="Color(0.690196, 0.188235, 0.376471, 1)",
+)
+
+COLOR_MEDIUM_AQUAMARINE = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_AQUAMARINE",
+    type="Color",
+    raw_value="Color(0.4, 0.803922, 0.666667, 1)",
+)
+
+COLOR_MEDIUM_BLUE = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_BLUE",
+    type="Color",
+    raw_value="Color(0, 0, 0.803922, 1)",
+)
+
+COLOR_MEDIUM_ORCHID = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_ORCHID",
+    type="Color",
+    raw_value="Color(0.729412, 0.333333, 0.827451, 1)",
+)
+
+COLOR_MEDIUM_PURPLE = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_PURPLE",
+    type="Color",
+    raw_value="Color(0.576471, 0.439216, 0.858824, 1)",
+)
+
+COLOR_MEDIUM_SEA_GREEN = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_SEA_GREEN",
+    type="Color",
+    raw_value="Color(0.235294, 0.701961, 0.443137, 1)",
+)
+
+COLOR_MEDIUM_SLATE_BLUE = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_SLATE_BLUE",
+    type="Color",
+    raw_value="Color(0.482353, 0.407843, 0.933333, 1)",
+)
+
+COLOR_MEDIUM_SPRING_GREEN = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_SPRING_GREEN",
+    type="Color",
+    raw_value="Color(0, 0.980392, 0.603922, 1)",
+)
+
+COLOR_MEDIUM_TURQUOISE = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_TURQUOISE",
+    type="Color",
+    raw_value="Color(0.282353, 0.819608, 0.8, 1)",
+)
+
+COLOR_MEDIUM_VIOLET_RED = GodotConstant(
+    class_name="Color",
+    name="MEDIUM_VIOLET_RED",
+    type="Color",
+    raw_value="Color(0.780392, 0.0823529, 0.521569, 1)",
+)
+
+COLOR_MIDNIGHT_BLUE = GodotConstant(
+    class_name="Color",
+    name="MIDNIGHT_BLUE",
+    type="Color",
+    raw_value="Color(0.0980392, 0.0980392, 0.439216, 1)",
+)
+
+COLOR_MINT_CREAM = GodotConstant(
+    class_name="Color",
+    name="MINT_CREAM",
+    type="Color",
+    raw_value="Color(0.960784, 1, 0.980392, 1)",
+)
+
+COLOR_MISTY_ROSE = GodotConstant(
+    class_name="Color",
+    name="MISTY_ROSE",
+    type="Color",
+    raw_value="Color(1, 0.894118, 0.882353, 1)",
+)
+
+COLOR_MOCCASIN = GodotConstant(
+    class_name="Color",
+    name="MOCCASIN",
+    type="Color",
+    raw_value="Color(1, 0.894118, 0.709804, 1)",
+)
+
+COLOR_NAVAJO_WHITE = GodotConstant(
+    class_name="Color",
+    name="NAVAJO_WHITE",
+    type="Color",
+    raw_value="Color(1, 0.870588, 0.678431, 1)",
+)
+
+COLOR_NAVY_BLUE = GodotConstant(
+    class_name="Color",
+    name="NAVY_BLUE",
+    type="Color",
+    raw_value="Color(0, 0, 0.501961, 1)",
+)
+
+COLOR_OLD_LACE = GodotConstant(
+    class_name="Color",
+    name="OLD_LACE",
+    type="Color",
+    raw_value="Color(0.992157, 0.960784, 0.901961, 1)",
+)
+
+COLOR_OLIVE = GodotConstant(
+    class_name="Color",
+    name="OLIVE",
+    type="Color",
+    raw_value="Color(0.501961, 0.501961, 0, 1)",
+)
+
+COLOR_OLIVE_DRAB = GodotConstant(
+    class_name="Color",
+    name="OLIVE_DRAB",
+    type="Color",
+    raw_value="Color(0.419608, 0.556863, 0.137255, 1)",
+)
+
+COLOR_ORANGE = GodotConstant(
+    class_name="Color",
+    name="ORANGE",
+    type="Color",
+    raw_value="Color(1, 0.647059, 0, 1)",
+)
+
+COLOR_ORANGE_RED = GodotConstant(
+    class_name="Color",
+    name="ORANGE_RED",
+    type="Color",
+    raw_value="Color(1, 0.270588, 0, 1)",
+)
+
+COLOR_ORCHID = GodotConstant(
+    class_name="Color",
+    name="ORCHID",
+    type="Color",
+    raw_value="Color(0.854902, 0.439216, 0.839216, 1)",
+)
+
+COLOR_PALE_GOLDENROD = GodotConstant(
+    class_name="Color",
+    name="PALE_GOLDENROD",
+    type="Color",
+    raw_value="Color(0.933333, 0.909804, 0.666667, 1)",
+)
+
+COLOR_PALE_GREEN = GodotConstant(
+    class_name="Color",
+    name="PALE_GREEN",
+    type="Color",
+    raw_value="Color(0.596078, 0.984314, 0.596078, 1)",
+)
+
+COLOR_PALE_TURQUOISE = GodotConstant(
+    class_name="Color",
+    name="PALE_TURQUOISE",
+    type="Color",
+    raw_value="Color(0.686275, 0.933333, 0.933333, 1)",
+)
+
+COLOR_PALE_VIOLET_RED = GodotConstant(
+    class_name="Color",
+    name="PALE_VIOLET_RED",
+    type="Color",
+    raw_value="Color(0.858824, 0.439216, 0.576471, 1)",
+)
+
+COLOR_PAPAYA_WHIP = GodotConstant(
+    class_name="Color",
+    name="PAPAYA_WHIP",
+    type="Color",
+    raw_value="Color(1, 0.937255, 0.835294, 1)",
+)
+
+COLOR_PEACH_PUFF = GodotConstant(
+    class_name="Color",
+    name="PEACH_PUFF",
+    type="Color",
+    raw_value="Color(1, 0.854902, 0.72549, 1)",
+)
+
+COLOR_PERU = GodotConstant(
+    class_name="Color",
+    name="PERU",
+    type="Color",
+    raw_value="Color(0.803922, 0.521569, 0.247059, 1)",
+)
+
+COLOR_PINK = GodotConstant(
+    class_name="Color",
+    name="PINK",
+    type="Color",
+    raw_value="Color(1, 0.752941, 0.796078, 1)",
+)
+
+COLOR_PLUM = GodotConstant(
+    class_name="Color",
+    name="PLUM",
+    type="Color",
+    raw_value="Color(0.866667, 0.627451, 0.866667, 1)",
+)
+
+COLOR_POWDER_BLUE = GodotConstant(
+    class_name="Color",
+    name="POWDER_BLUE",
+    type="Color",
+    raw_value="Color(0.690196, 0.878431, 0.901961, 1)",
+)
+
+COLOR_PURPLE = GodotConstant(
+    class_name="Color",
+    name="PURPLE",
+    type="Color",
+    raw_value="Color(0.627451, 0.12549, 0.941176, 1)",
+)
+
+COLOR_REBECCA_PURPLE = GodotConstant(
+    class_name="Color",
+    name="REBECCA_PURPLE",
+    type="Color",
+    raw_value="Color(0.4, 0.2, 0.6, 1)",
+)
+
+COLOR_RED = GodotConstant(
+    class_name="Color", name="RED", type="Color", raw_value="Color(1, 0, 0, 1)"
+)
+
+COLOR_ROSY_BROWN = GodotConstant(
+    class_name="Color",
+    name="ROSY_BROWN",
+    type="Color",
+    raw_value="Color(0.737255, 0.560784, 0.560784, 1)",
+)
+
+COLOR_ROYAL_BLUE = GodotConstant(
+    class_name="Color",
+    name="ROYAL_BLUE",
+    type="Color",
+    raw_value="Color(0.254902, 0.411765, 0.882353, 1)",
+)
+
+COLOR_SADDLE_BROWN = GodotConstant(
+    class_name="Color",
+    name="SADDLE_BROWN",
+    type="Color",
+    raw_value="Color(0.545098, 0.270588, 0.0745098, 1)",
+)
+
+COLOR_SALMON = GodotConstant(
+    class_name="Color",
+    name="SALMON",
+    type="Color",
+    raw_value="Color(0.980392, 0.501961, 0.447059, 1)",
+)
+
+COLOR_SANDY_BROWN = GodotConstant(
+    class_name="Color",
+    name="SANDY_BROWN",
+    type="Color",
+    raw_value="Color(0.956863, 0.643137, 0.376471, 1)",
+)
+
+COLOR_SEASHELL = GodotConstant(
+    class_name="Color",
+    name="SEASHELL",
+    type="Color",
+    raw_value="Color(1, 0.960784, 0.933333, 1)",
+)
+
+COLOR_SEA_GREEN = GodotConstant(
+    class_name="Color",
+    name="SEA_GREEN",
+    type="Color",
+    raw_value="Color(0.180392, 0.545098, 0.341176, 1)",
+)
+
+COLOR_SIENNA = GodotConstant(
+    class_name="Color",
+    name="SIENNA",
+    type="Color",
+    raw_value="Color(0.627451, 0.321569, 0.176471, 1)",
+)
+
+COLOR_SILVER = GodotConstant(
+    class_name="Color",
+    name="SILVER",
+    type="Color",
+    raw_value="Color(0.752941, 0.752941, 0.752941, 1)",
+)
+
+COLOR_SKY_BLUE = GodotConstant(
+    class_name="Color",
+    name="SKY_BLUE",
+    type="Color",
+    raw_value="Color(0.529412, 0.807843, 0.921569, 1)",
+)
+
+COLOR_SLATE_BLUE = GodotConstant(
+    class_name="Color",
+    name="SLATE_BLUE",
+    type="Color",
+    raw_value="Color(0.415686, 0.352941, 0.803922, 1)",
+)
+
+COLOR_SLATE_GRAY = GodotConstant(
+    class_name="Color",
+    name="SLATE_GRAY",
+    type="Color",
+    raw_value="Color(0.439216, 0.501961, 0.564706, 1)",
+)
+
+COLOR_SNOW = GodotConstant(
+    class_name="Color",
+    name="SNOW",
+    type="Color",
+    raw_value="Color(1, 0.980392, 0.980392, 1)",
+)
+
+COLOR_SPRING_GREEN = GodotConstant(
+    class_name="Color",
+    name="SPRING_GREEN",
+    type="Color",
+    raw_value="Color(0, 1, 0.498039, 1)",
+)
+
+COLOR_STEEL_BLUE = GodotConstant(
+    class_name="Color",
+    name="STEEL_BLUE",
+    type="Color",
+    raw_value="Color(0.27451, 0.509804, 0.705882, 1)",
+)
+
+COLOR_TAN = GodotConstant(
+    class_name="Color",
+    name="TAN",
+    type="Color",
+    raw_value="Color(0.823529, 0.705882, 0.54902, 1)",
+)
+
+COLOR_TEAL = GodotConstant(
+    class_name="Color",
+    name="TEAL",
+    type="Color",
+    raw_value="Color(0, 0.501961, 0.501961, 1)",
+)
+
+COLOR_THISTLE = GodotConstant(
+    class_name="Color",
+    name="THISTLE",
+    type="Color",
+    raw_value="Color(0.847059, 0.74902, 0.847059, 1)",
+)
+
+COLOR_TOMATO = GodotConstant(
+    class_name="Color",
+    name="TOMATO",
+    type="Color",
+    raw_value="Color(1, 0.388235, 0.278431, 1)",
+)
+
+COLOR_TRANSPARENT = GodotConstant(
+    class_name="Color", name="TRANSPARENT", type="Color", raw_value="Color(1, 1, 1, 0)"
+)
+
+COLOR_TURQUOISE = GodotConstant(
+    class_name="Color",
+    name="TURQUOISE",
+    type="Color",
+    raw_value="Color(0.25098, 0.878431, 0.815686, 1)",
+)
+
+COLOR_VIOLET = GodotConstant(
+    class_name="Color",
+    name="VIOLET",
+    type="Color",
+    raw_value="Color(0.933333, 0.509804, 0.933333, 1)",
+)
+
+COLOR_WEB_GRAY = GodotConstant(
+    class_name="Color",
+    name="WEB_GRAY",
+    type="Color",
+    raw_value="Color(0.501961, 0.501961, 0.501961, 1)",
+)
+
+COLOR_WEB_GREEN = GodotConstant(
+    class_name="Color",
+    name="WEB_GREEN",
+    type="Color",
+    raw_value="Color(0, 0.501961, 0, 1)",
+)
+
+COLOR_WEB_MAROON = GodotConstant(
+    class_name="Color",
+    name="WEB_MAROON",
+    type="Color",
+    raw_value="Color(0.501961, 0, 0, 1)",
+)
+
+COLOR_WEB_PURPLE = GodotConstant(
+    class_name="Color",
+    name="WEB_PURPLE",
+    type="Color",
+    raw_value="Color(0.501961, 0, 0.501961, 1)",
+)
+
+COLOR_WHEAT = GodotConstant(
+    class_name="Color",
+    name="WHEAT",
+    type="Color",
+    raw_value="Color(0.960784, 0.870588, 0.701961, 1)",
+)
+
+COLOR_WHITE = GodotConstant(
+    class_name="Color", name="WHITE", type="Color", raw_value="Color(1, 1, 1, 1)"
+)
+
+COLOR_WHITE_SMOKE = GodotConstant(
+    class_name="Color",
+    name="WHITE_SMOKE",
+    type="Color",
+    raw_value="Color(0.960784, 0.960784, 0.960784, 1)",
+)
+
+COLOR_YELLOW = GodotConstant(
+    class_name="Color", name="YELLOW", type="Color", raw_value="Color(1, 1, 0, 1)"
+)
+
+COLOR_YELLOW_GREEN = GodotConstant(
+    class_name="Color",
+    name="YELLOW_GREEN",
+    type="Color",
+    raw_value="Color(0.603922, 0.803922, 0.196078, 1)",
+)
+
+PLANE_PLANE_XY = GodotConstant(
+    class_name="Plane", name="PLANE_XY", type="Plane", raw_value="Plane(0, 0, 1, 0)"
+)
+
+PLANE_PLANE_XZ = GodotConstant(
+    class_name="Plane", name="PLANE_XZ", type="Plane", raw_value="Plane(0, 1, 0, 0)"
+)
+
+PLANE_PLANE_YZ = GodotConstant(
+    class_name="Plane", name="PLANE_YZ", type="Plane", raw_value="Plane(1, 0, 0, 0)"
+)
+
+PROJECTION_IDENTITY = GodotConstant(
+    class_name="Projection",
+    name="IDENTITY",
+    type="Projection",
+    raw_value="Projection(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)",
+)
+
+PROJECTION_ZERO = GodotConstant(
+    class_name="Projection",
+    name="ZERO",
+    type="Projection",
+    raw_value="Projection(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)",
+)
+
+QUATERNION_IDENTITY = GodotConstant(
+    class_name="Quaternion",
+    name="IDENTITY",
+    type="Quaternion",
+    raw_value="Quaternion(0, 0, 0, 1)",
+)
+
+TRANSFORM2D_FLIP_X = GodotConstant(
+    class_name="Transform2D",
+    name="FLIP_X",
+    type="Transform2D",
+    raw_value="Transform2D(-1, 0, 0, 1, 0, 0)",
+)
+
+TRANSFORM2D_FLIP_Y = GodotConstant(
+    class_name="Transform2D",
+    name="FLIP_Y",
+    type="Transform2D",
+    raw_value="Transform2D(1, 0, 0, -1, 0, 0)",
+)
+
+TRANSFORM2D_IDENTITY = GodotConstant(
+    class_name="Transform2D",
+    name="IDENTITY",
+    type="Transform2D",
+    raw_value="Transform2D(1, 0, 0, 1, 0, 0)",
+)
+
+TRANSFORM3D_FLIP_X = GodotConstant(
+    class_name="Transform3D",
+    name="FLIP_X",
+    type="Transform3D",
+    raw_value="Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)",
+)
+
+TRANSFORM3D_FLIP_Y = GodotConstant(
+    class_name="Transform3D",
+    name="FLIP_Y",
+    type="Transform3D",
+    raw_value="Transform3D(1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0)",
+)
+
+TRANSFORM3D_FLIP_Z = GodotConstant(
+    class_name="Transform3D",
+    name="FLIP_Z",
+    type="Transform3D",
+    raw_value="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)",
+)
+
+TRANSFORM3D_IDENTITY = GodotConstant(
+    class_name="Transform3D",
+    name="IDENTITY",
+    type="Transform3D",
+    raw_value="Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)",
+)
+
+VECTOR2_DOWN = GodotConstant(
+    class_name="Vector2", name="DOWN", type="Vector2", raw_value="Vector2(0, 1)"
+)
+
+VECTOR2_INF = GodotConstant(
+    class_name="Vector2", name="INF", type="Vector2", raw_value="Vector2(inf, inf)"
+)
+
+VECTOR2_LEFT = GodotConstant(
+    class_name="Vector2", name="LEFT", type="Vector2", raw_value="Vector2(-1, 0)"
+)
+
+VECTOR2_ONE = GodotConstant(
+    class_name="Vector2", name="ONE", type="Vector2", raw_value="Vector2(1, 1)"
+)
+
+VECTOR2_RIGHT = GodotConstant(
+    class_name="Vector2", name="RIGHT", type="Vector2", raw_value="Vector2(1, 0)"
+)
+
+VECTOR2_UP = GodotConstant(
+    class_name="Vector2", name="UP", type="Vector2", raw_value="Vector2(0, -1)"
+)
+
+VECTOR2_ZERO = GodotConstant(
+    class_name="Vector2", name="ZERO", type="Vector2", raw_value="Vector2(0, 0)"
+)
+
+VECTOR2I_DOWN = GodotConstant(
+    class_name="Vector2i", name="DOWN", type="Vector2i", raw_value="Vector2i(0, 1)"
+)
+
+VECTOR2I_LEFT = GodotConstant(
+    class_name="Vector2i", name="LEFT", type="Vector2i", raw_value="Vector2i(-1, 0)"
+)
+
+VECTOR2I_MAX = GodotConstant(
+    class_name="Vector2i",
+    name="MAX",
+    type="Vector2i",
+    raw_value="Vector2i(2147483647, 2147483647)",
+)
+
+VECTOR2I_MIN = GodotConstant(
+    class_name="Vector2i",
+    name="MIN",
+    type="Vector2i",
+    raw_value="Vector2i(-2147483648, -2147483648)",
+)
+
+VECTOR2I_ONE = GodotConstant(
+    class_name="Vector2i", name="ONE", type="Vector2i", raw_value="Vector2i(1, 1)"
+)
+
+VECTOR2I_RIGHT = GodotConstant(
+    class_name="Vector2i", name="RIGHT", type="Vector2i", raw_value="Vector2i(1, 0)"
+)
+
+VECTOR2I_UP = GodotConstant(
+    class_name="Vector2i", name="UP", type="Vector2i", raw_value="Vector2i(0, -1)"
+)
+
+VECTOR2I_ZERO = GodotConstant(
+    class_name="Vector2i", name="ZERO", type="Vector2i", raw_value="Vector2i(0, 0)"
+)
+
+VECTOR3_BACK = GodotConstant(
+    class_name="Vector3", name="BACK", type="Vector3", raw_value="Vector3(0, 0, 1)"
+)
+
+VECTOR3_DOWN = GodotConstant(
+    class_name="Vector3", name="DOWN", type="Vector3", raw_value="Vector3(0, -1, 0)"
+)
+
+VECTOR3_FORWARD = GodotConstant(
+    class_name="Vector3", name="FORWARD", type="Vector3", raw_value="Vector3(0, 0, -1)"
+)
+
+VECTOR3_INF = GodotConstant(
+    class_name="Vector3", name="INF", type="Vector3", raw_value="Vector3(inf, inf, inf)"
+)
+
+VECTOR3_LEFT = GodotConstant(
+    class_name="Vector3", name="LEFT", type="Vector3", raw_value="Vector3(-1, 0, 0)"
+)
+
+VECTOR3_MODEL_BOTTOM = GodotConstant(
+    class_name="Vector3",
+    name="MODEL_BOTTOM",
+    type="Vector3",
+    raw_value="Vector3(0, -1, 0)",
+)
+
+VECTOR3_MODEL_FRONT = GodotConstant(
+    class_name="Vector3",
+    name="MODEL_FRONT",
+    type="Vector3",
+    raw_value="Vector3(0, 0, 1)",
+)
+
+VECTOR3_MODEL_LEFT = GodotConstant(
+    class_name="Vector3",
+    name="MODEL_LEFT",
+    type="Vector3",
+    raw_value="Vector3(1, 0, 0)",
+)
+
+VECTOR3_MODEL_REAR = GodotConstant(
+    class_name="Vector3",
+    name="MODEL_REAR",
+    type="Vector3",
+    raw_value="Vector3(0, 0, -1)",
+)
+
+VECTOR3_MODEL_RIGHT = GodotConstant(
+    class_name="Vector3",
+    name="MODEL_RIGHT",
+    type="Vector3",
+    raw_value="Vector3(-1, 0, 0)",
+)
+
+VECTOR3_MODEL_TOP = GodotConstant(
+    class_name="Vector3", name="MODEL_TOP", type="Vector3", raw_value="Vector3(0, 1, 0)"
+)
+
+VECTOR3_ONE = GodotConstant(
+    class_name="Vector3", name="ONE", type="Vector3", raw_value="Vector3(1, 1, 1)"
+)
+
+VECTOR3_RIGHT = GodotConstant(
+    class_name="Vector3", name="RIGHT", type="Vector3", raw_value="Vector3(1, 0, 0)"
+)
+
+VECTOR3_UP = GodotConstant(
+    class_name="Vector3", name="UP", type="Vector3", raw_value="Vector3(0, 1, 0)"
+)
+
+VECTOR3_ZERO = GodotConstant(
+    class_name="Vector3", name="ZERO", type="Vector3", raw_value="Vector3(0, 0, 0)"
+)
+
+VECTOR3I_BACK = GodotConstant(
+    class_name="Vector3i", name="BACK", type="Vector3i", raw_value="Vector3i(0, 0, 1)"
+)
+
+VECTOR3I_DOWN = GodotConstant(
+    class_name="Vector3i", name="DOWN", type="Vector3i", raw_value="Vector3i(0, -1, 0)"
+)
+
+VECTOR3I_FORWARD = GodotConstant(
+    class_name="Vector3i",
+    name="FORWARD",
+    type="Vector3i",
+    raw_value="Vector3i(0, 0, -1)",
+)
+
+VECTOR3I_LEFT = GodotConstant(
+    class_name="Vector3i", name="LEFT", type="Vector3i", raw_value="Vector3i(-1, 0, 0)"
+)
+
+VECTOR3I_MAX = GodotConstant(
+    class_name="Vector3i",
+    name="MAX",
+    type="Vector3i",
+    raw_value="Vector3i(2147483647, 2147483647, 2147483647)",
+)
+
+VECTOR3I_MIN = GodotConstant(
+    class_name="Vector3i",
+    name="MIN",
+    type="Vector3i",
+    raw_value="Vector3i(-2147483648, -2147483648, -2147483648)",
+)
+
+VECTOR3I_ONE = GodotConstant(
+    class_name="Vector3i", name="ONE", type="Vector3i", raw_value="Vector3i(1, 1, 1)"
+)
+
+VECTOR3I_RIGHT = GodotConstant(
+    class_name="Vector3i", name="RIGHT", type="Vector3i", raw_value="Vector3i(1, 0, 0)"
+)
+
+VECTOR3I_UP = GodotConstant(
+    class_name="Vector3i", name="UP", type="Vector3i", raw_value="Vector3i(0, 1, 0)"
+)
+
+VECTOR3I_ZERO = GodotConstant(
+    class_name="Vector3i", name="ZERO", type="Vector3i", raw_value="Vector3i(0, 0, 0)"
+)
+
+VECTOR4_INF = GodotConstant(
+    class_name="Vector4",
+    name="INF",
+    type="Vector4",
+    raw_value="Vector4(inf, inf, inf, inf)",
+)
+
+VECTOR4_ONE = GodotConstant(
+    class_name="Vector4", name="ONE", type="Vector4", raw_value="Vector4(1, 1, 1, 1)"
+)
+
+VECTOR4_ZERO = GodotConstant(
+    class_name="Vector4", name="ZERO", type="Vector4", raw_value="Vector4(0, 0, 0, 0)"
+)
+
+VECTOR4I_MAX = GodotConstant(
+    class_name="Vector4i",
+    name="MAX",
+    type="Vector4i",
+    raw_value="Vector4i(2147483647, 2147483647, 2147483647, 2147483647)",
+)
+
+VECTOR4I_MIN = GodotConstant(
+    class_name="Vector4i",
+    name="MIN",
+    type="Vector4i",
+    raw_value="Vector4i(-2147483648, -2147483648, -2147483648, -2147483648)",
+)
+
+VECTOR4I_ONE = GodotConstant(
+    class_name="Vector4i", name="ONE", type="Vector4i", raw_value="Vector4i(1, 1, 1, 1)"
+)
+
+VECTOR4I_ZERO = GodotConstant(
+    class_name="Vector4i",
+    name="ZERO",
+    type="Vector4i",
+    raw_value="Vector4i(0, 0, 0, 0)",
+)
+
+
+BY_GODOT_NAME = {
+    "Basis.FLIP_X": BASIS_FLIP_X,
+    "Basis.FLIP_Y": BASIS_FLIP_Y,
+    "Basis.FLIP_Z": BASIS_FLIP_Z,
+    "Basis.IDENTITY": BASIS_IDENTITY,
+    "Color.ALICE_BLUE": COLOR_ALICE_BLUE,
+    "Color.ANTIQUE_WHITE": COLOR_ANTIQUE_WHITE,
+    "Color.AQUA": COLOR_AQUA,
+    "Color.AQUAMARINE": COLOR_AQUAMARINE,
+    "Color.AZURE": COLOR_AZURE,
+    "Color.BEIGE": COLOR_BEIGE,
+    "Color.BISQUE": COLOR_BISQUE,
+    "Color.BLACK": COLOR_BLACK,
+    "Color.BLANCHED_ALMOND": COLOR_BLANCHED_ALMOND,
+    "Color.BLUE": COLOR_BLUE,
+    "Color.BLUE_VIOLET": COLOR_BLUE_VIOLET,
+    "Color.BROWN": COLOR_BROWN,
+    "Color.BURLYWOOD": COLOR_BURLYWOOD,
+    "Color.CADET_BLUE": COLOR_CADET_BLUE,
+    "Color.CHARTREUSE": COLOR_CHARTREUSE,
+    "Color.CHOCOLATE": COLOR_CHOCOLATE,
+    "Color.CORAL": COLOR_CORAL,
+    "Color.CORNFLOWER_BLUE": COLOR_CORNFLOWER_BLUE,
+    "Color.CORNSILK": COLOR_CORNSILK,
+    "Color.CRIMSON": COLOR_CRIMSON,
+    "Color.CYAN": COLOR_CYAN,
+    "Color.DARK_BLUE": COLOR_DARK_BLUE,
+    "Color.DARK_CYAN": COLOR_DARK_CYAN,
+    "Color.DARK_GOLDENROD": COLOR_DARK_GOLDENROD,
+    "Color.DARK_GRAY": COLOR_DARK_GRAY,
+    "Color.DARK_GREEN": COLOR_DARK_GREEN,
+    "Color.DARK_KHAKI": COLOR_DARK_KHAKI,
+    "Color.DARK_MAGENTA": COLOR_DARK_MAGENTA,
+    "Color.DARK_OLIVE_GREEN": COLOR_DARK_OLIVE_GREEN,
+    "Color.DARK_ORANGE": COLOR_DARK_ORANGE,
+    "Color.DARK_ORCHID": COLOR_DARK_ORCHID,
+    "Color.DARK_RED": COLOR_DARK_RED,
+    "Color.DARK_SALMON": COLOR_DARK_SALMON,
+    "Color.DARK_SEA_GREEN": COLOR_DARK_SEA_GREEN,
+    "Color.DARK_SLATE_BLUE": COLOR_DARK_SLATE_BLUE,
+    "Color.DARK_SLATE_GRAY": COLOR_DARK_SLATE_GRAY,
+    "Color.DARK_TURQUOISE": COLOR_DARK_TURQUOISE,
+    "Color.DARK_VIOLET": COLOR_DARK_VIOLET,
+    "Color.DEEP_PINK": COLOR_DEEP_PINK,
+    "Color.DEEP_SKY_BLUE": COLOR_DEEP_SKY_BLUE,
+    "Color.DIM_GRAY": COLOR_DIM_GRAY,
+    "Color.DODGER_BLUE": COLOR_DODGER_BLUE,
+    "Color.FIREBRICK": COLOR_FIREBRICK,
+    "Color.FLORAL_WHITE": COLOR_FLORAL_WHITE,
+    "Color.FOREST_GREEN": COLOR_FOREST_GREEN,
+    "Color.FUCHSIA": COLOR_FUCHSIA,
+    "Color.GAINSBORO": COLOR_GAINSBORO,
+    "Color.GHOST_WHITE": COLOR_GHOST_WHITE,
+    "Color.GOLD": COLOR_GOLD,
+    "Color.GOLDENROD": COLOR_GOLDENROD,
+    "Color.GRAY": COLOR_GRAY,
+    "Color.GREEN": COLOR_GREEN,
+    "Color.GREEN_YELLOW": COLOR_GREEN_YELLOW,
+    "Color.HONEYDEW": COLOR_HONEYDEW,
+    "Color.HOT_PINK": COLOR_HOT_PINK,
+    "Color.INDIAN_RED": COLOR_INDIAN_RED,
+    "Color.INDIGO": COLOR_INDIGO,
+    "Color.IVORY": COLOR_IVORY,
+    "Color.KHAKI": COLOR_KHAKI,
+    "Color.LAVENDER": COLOR_LAVENDER,
+    "Color.LAVENDER_BLUSH": COLOR_LAVENDER_BLUSH,
+    "Color.LAWN_GREEN": COLOR_LAWN_GREEN,
+    "Color.LEMON_CHIFFON": COLOR_LEMON_CHIFFON,
+    "Color.LIGHT_BLUE": COLOR_LIGHT_BLUE,
+    "Color.LIGHT_CORAL": COLOR_LIGHT_CORAL,
+    "Color.LIGHT_CYAN": COLOR_LIGHT_CYAN,
+    "Color.LIGHT_GOLDENROD": COLOR_LIGHT_GOLDENROD,
+    "Color.LIGHT_GRAY": COLOR_LIGHT_GRAY,
+    "Color.LIGHT_GREEN": COLOR_LIGHT_GREEN,
+    "Color.LIGHT_PINK": COLOR_LIGHT_PINK,
+    "Color.LIGHT_SALMON": COLOR_LIGHT_SALMON,
+    "Color.LIGHT_SEA_GREEN": COLOR_LIGHT_SEA_GREEN,
+    "Color.LIGHT_SKY_BLUE": COLOR_LIGHT_SKY_BLUE,
+    "Color.LIGHT_SLATE_GRAY": COLOR_LIGHT_SLATE_GRAY,
+    "Color.LIGHT_STEEL_BLUE": COLOR_LIGHT_STEEL_BLUE,
+    "Color.LIGHT_YELLOW": COLOR_LIGHT_YELLOW,
+    "Color.LIME": COLOR_LIME,
+    "Color.LIME_GREEN": COLOR_LIME_GREEN,
+    "Color.LINEN": COLOR_LINEN,
+    "Color.MAGENTA": COLOR_MAGENTA,
+    "Color.MAROON": COLOR_MAROON,
+    "Color.MEDIUM_AQUAMARINE": COLOR_MEDIUM_AQUAMARINE,
+    "Color.MEDIUM_BLUE": COLOR_MEDIUM_BLUE,
+    "Color.MEDIUM_ORCHID": COLOR_MEDIUM_ORCHID,
+    "Color.MEDIUM_PURPLE": COLOR_MEDIUM_PURPLE,
+    "Color.MEDIUM_SEA_GREEN": COLOR_MEDIUM_SEA_GREEN,
+    "Color.MEDIUM_SLATE_BLUE": COLOR_MEDIUM_SLATE_BLUE,
+    "Color.MEDIUM_SPRING_GREEN": COLOR_MEDIUM_SPRING_GREEN,
+    "Color.MEDIUM_TURQUOISE": COLOR_MEDIUM_TURQUOISE,
+    "Color.MEDIUM_VIOLET_RED": COLOR_MEDIUM_VIOLET_RED,
+    "Color.MIDNIGHT_BLUE": COLOR_MIDNIGHT_BLUE,
+    "Color.MINT_CREAM": COLOR_MINT_CREAM,
+    "Color.MISTY_ROSE": COLOR_MISTY_ROSE,
+    "Color.MOCCASIN": COLOR_MOCCASIN,
+    "Color.NAVAJO_WHITE": COLOR_NAVAJO_WHITE,
+    "Color.NAVY_BLUE": COLOR_NAVY_BLUE,
+    "Color.OLD_LACE": COLOR_OLD_LACE,
+    "Color.OLIVE": COLOR_OLIVE,
+    "Color.OLIVE_DRAB": COLOR_OLIVE_DRAB,
+    "Color.ORANGE": COLOR_ORANGE,
+    "Color.ORANGE_RED": COLOR_ORANGE_RED,
+    "Color.ORCHID": COLOR_ORCHID,
+    "Color.PALE_GOLDENROD": COLOR_PALE_GOLDENROD,
+    "Color.PALE_GREEN": COLOR_PALE_GREEN,
+    "Color.PALE_TURQUOISE": COLOR_PALE_TURQUOISE,
+    "Color.PALE_VIOLET_RED": COLOR_PALE_VIOLET_RED,
+    "Color.PAPAYA_WHIP": COLOR_PAPAYA_WHIP,
+    "Color.PEACH_PUFF": COLOR_PEACH_PUFF,
+    "Color.PERU": COLOR_PERU,
+    "Color.PINK": COLOR_PINK,
+    "Color.PLUM": COLOR_PLUM,
+    "Color.POWDER_BLUE": COLOR_POWDER_BLUE,
+    "Color.PURPLE": COLOR_PURPLE,
+    "Color.REBECCA_PURPLE": COLOR_REBECCA_PURPLE,
+    "Color.RED": COLOR_RED,
+    "Color.ROSY_BROWN": COLOR_ROSY_BROWN,
+    "Color.ROYAL_BLUE": COLOR_ROYAL_BLUE,
+    "Color.SADDLE_BROWN": COLOR_SADDLE_BROWN,
+    "Color.SALMON": COLOR_SALMON,
+    "Color.SANDY_BROWN": COLOR_SANDY_BROWN,
+    "Color.SEASHELL": COLOR_SEASHELL,
+    "Color.SEA_GREEN": COLOR_SEA_GREEN,
+    "Color.SIENNA": COLOR_SIENNA,
+    "Color.SILVER": COLOR_SILVER,
+    "Color.SKY_BLUE": COLOR_SKY_BLUE,
+    "Color.SLATE_BLUE": COLOR_SLATE_BLUE,
+    "Color.SLATE_GRAY": COLOR_SLATE_GRAY,
+    "Color.SNOW": COLOR_SNOW,
+    "Color.SPRING_GREEN": COLOR_SPRING_GREEN,
+    "Color.STEEL_BLUE": COLOR_STEEL_BLUE,
+    "Color.TAN": COLOR_TAN,
+    "Color.TEAL": COLOR_TEAL,
+    "Color.THISTLE": COLOR_THISTLE,
+    "Color.TOMATO": COLOR_TOMATO,
+    "Color.TRANSPARENT": COLOR_TRANSPARENT,
+    "Color.TURQUOISE": COLOR_TURQUOISE,
+    "Color.VIOLET": COLOR_VIOLET,
+    "Color.WEB_GRAY": COLOR_WEB_GRAY,
+    "Color.WEB_GREEN": COLOR_WEB_GREEN,
+    "Color.WEB_MAROON": COLOR_WEB_MAROON,
+    "Color.WEB_PURPLE": COLOR_WEB_PURPLE,
+    "Color.WHEAT": COLOR_WHEAT,
+    "Color.WHITE": COLOR_WHITE,
+    "Color.WHITE_SMOKE": COLOR_WHITE_SMOKE,
+    "Color.YELLOW": COLOR_YELLOW,
+    "Color.YELLOW_GREEN": COLOR_YELLOW_GREEN,
+    "Plane.PLANE_XY": PLANE_PLANE_XY,
+    "Plane.PLANE_XZ": PLANE_PLANE_XZ,
+    "Plane.PLANE_YZ": PLANE_PLANE_YZ,
+    "Projection.IDENTITY": PROJECTION_IDENTITY,
+    "Projection.ZERO": PROJECTION_ZERO,
+    "Quaternion.IDENTITY": QUATERNION_IDENTITY,
+    "Transform2D.FLIP_X": TRANSFORM2D_FLIP_X,
+    "Transform2D.FLIP_Y": TRANSFORM2D_FLIP_Y,
+    "Transform2D.IDENTITY": TRANSFORM2D_IDENTITY,
+    "Transform3D.FLIP_X": TRANSFORM3D_FLIP_X,
+    "Transform3D.FLIP_Y": TRANSFORM3D_FLIP_Y,
+    "Transform3D.FLIP_Z": TRANSFORM3D_FLIP_Z,
+    "Transform3D.IDENTITY": TRANSFORM3D_IDENTITY,
+    "Vector2.DOWN": VECTOR2_DOWN,
+    "Vector2.INF": VECTOR2_INF,
+    "Vector2.LEFT": VECTOR2_LEFT,
+    "Vector2.ONE": VECTOR2_ONE,
+    "Vector2.RIGHT": VECTOR2_RIGHT,
+    "Vector2.UP": VECTOR2_UP,
+    "Vector2.ZERO": VECTOR2_ZERO,
+    "Vector2i.DOWN": VECTOR2I_DOWN,
+    "Vector2i.LEFT": VECTOR2I_LEFT,
+    "Vector2i.MAX": VECTOR2I_MAX,
+    "Vector2i.MIN": VECTOR2I_MIN,
+    "Vector2i.ONE": VECTOR2I_ONE,
+    "Vector2i.RIGHT": VECTOR2I_RIGHT,
+    "Vector2i.UP": VECTOR2I_UP,
+    "Vector2i.ZERO": VECTOR2I_ZERO,
+    "Vector3.BACK": VECTOR3_BACK,
+    "Vector3.DOWN": VECTOR3_DOWN,
+    "Vector3.FORWARD": VECTOR3_FORWARD,
+    "Vector3.INF": VECTOR3_INF,
+    "Vector3.LEFT": VECTOR3_LEFT,
+    "Vector3.MODEL_BOTTOM": VECTOR3_MODEL_BOTTOM,
+    "Vector3.MODEL_FRONT": VECTOR3_MODEL_FRONT,
+    "Vector3.MODEL_LEFT": VECTOR3_MODEL_LEFT,
+    "Vector3.MODEL_REAR": VECTOR3_MODEL_REAR,
+    "Vector3.MODEL_RIGHT": VECTOR3_MODEL_RIGHT,
+    "Vector3.MODEL_TOP": VECTOR3_MODEL_TOP,
+    "Vector3.ONE": VECTOR3_ONE,
+    "Vector3.RIGHT": VECTOR3_RIGHT,
+    "Vector3.UP": VECTOR3_UP,
+    "Vector3.ZERO": VECTOR3_ZERO,
+    "Vector3i.BACK": VECTOR3I_BACK,
+    "Vector3i.DOWN": VECTOR3I_DOWN,
+    "Vector3i.FORWARD": VECTOR3I_FORWARD,
+    "Vector3i.LEFT": VECTOR3I_LEFT,
+    "Vector3i.MAX": VECTOR3I_MAX,
+    "Vector3i.MIN": VECTOR3I_MIN,
+    "Vector3i.ONE": VECTOR3I_ONE,
+    "Vector3i.RIGHT": VECTOR3I_RIGHT,
+    "Vector3i.UP": VECTOR3I_UP,
+    "Vector3i.ZERO": VECTOR3I_ZERO,
+    "Vector4.INF": VECTOR4_INF,
+    "Vector4.ONE": VECTOR4_ONE,
+    "Vector4.ZERO": VECTOR4_ZERO,
+    "Vector4i.MAX": VECTOR4I_MAX,
+    "Vector4i.MIN": VECTOR4I_MIN,
+    "Vector4i.ONE": VECTOR4I_ONE,
+    "Vector4i.ZERO": VECTOR4I_ZERO,
+}

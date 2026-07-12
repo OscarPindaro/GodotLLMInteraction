@@ -69,9 +69,12 @@ def _write_if_changed(path: Path, source: str) -> bool:
     return changed
 
 
-def _ensure_version_package(version: str) -> tuple[Path, bool]:
+def _ensure_version_package(
+    version: str, specs_root: Path | None = None
+) -> tuple[Path, bool]:
     """Ensure specifications/<version>/ exists with an __init__.py; return (dir, was_created)."""
-    version_dir = _SPECIFICATIONS_ROOT / version
+    root = specs_root or _SPECIFICATIONS_ROOT
+    version_dir = root / version
     created = not version_dir.exists()
     version_dir.mkdir(parents=True, exist_ok=True)
     init_path = version_dir / "__init__.py"
@@ -317,6 +320,13 @@ def sync_enums(
             help="Only check whether the generated enum blocks are up to date; don't write.",
         ),
     ] = False,
+    specs_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-root",
+            help="Root directory for version packages. Defaults to the built-in specifications/.",
+        ),
+    ] = None,
 ) -> None:
     """Sync the generated enum blocks inside specifications/<version>/spec.py from extension_api.json."""
     if not _VERSION_RE.match(version):
@@ -326,7 +336,8 @@ def sync_enums(
         )
         raise typer.Exit(code=EXIT_USAGE)
 
-    spec_path = _SPECIFICATIONS_ROOT / version / "spec.py"
+    root = specs_root or _SPECIFICATIONS_ROOT
+    spec_path = root / version / "spec.py"
     if not spec_path.exists():
         print_error(f"spec.py not found at {spec_path}.")
         raise typer.Exit(code=EXIT_ERROR)
@@ -592,6 +603,13 @@ def generate_builtin_classes(
             help="Only check whether the generated files are up to date; don't write.",
         ),
     ] = False,
+    specs_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-root",
+            help="Root directory for version packages. Defaults to the built-in specifications/.",
+        ),
+    ] = None,
 ) -> None:
     """Generate builtin_classes.py and constants.py for a specifications/<version>/ package.
 
@@ -616,7 +634,8 @@ def generate_builtin_classes(
         print_error(str(exc))
         raise typer.Exit(code=EXIT_ERROR) from exc
 
-    version_dir = _SPECIFICATIONS_ROOT / version
+    root = specs_root or _SPECIFICATIONS_ROOT
+    version_dir = root / version
     targets = {
         version_dir / "builtin_classes.py": models_source,
         version_dir / "constants.py": constants_source,
@@ -632,7 +651,7 @@ def generate_builtin_classes(
         print_success("Generated builtin classes are up to date.")
         return
 
-    _, created = _ensure_version_package(version)
+    _, created = _ensure_version_package(version, specs_root)
     if created:
         print_success(f"Created {version_dir}.")
 
@@ -867,6 +886,13 @@ def generate_classes(
             help="Only check whether the generated file is up to date; don't write.",
         ),
     ] = False,
+    specs_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-root",
+            help="Root directory for version packages. Defaults to the built-in specifications/.",
+        ),
+    ] = None,
 ) -> None:
     """Generate classes.py for a specifications/<version>/ package.
 
@@ -891,7 +917,8 @@ def generate_classes(
         print_error(str(exc))
         raise typer.Exit(code=EXIT_ERROR) from exc
 
-    version_dir = _SPECIFICATIONS_ROOT / version
+    root = specs_root or _SPECIFICATIONS_ROOT
+    version_dir = root / version
     classes_path = version_dir / "classes.py"
 
     if check:
@@ -904,7 +931,7 @@ def generate_classes(
         print_success("Generated classes.py is up to date.")
         return
 
-    _, created = _ensure_version_package(version)
+    _, created = _ensure_version_package(version, specs_root)
     if created:
         print_success(f"Created {version_dir}.")
 
@@ -1027,6 +1054,13 @@ def generate_signals(
             help="Only check whether the generated file is up to date; don't write.",
         ),
     ] = False,
+    specs_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-root",
+            help="Root directory for version packages. Defaults to the built-in specifications/.",
+        ),
+    ] = None,
 ) -> None:
     """Generate signals.py for a specifications/<version>/ package.
 
@@ -1044,7 +1078,8 @@ def generate_signals(
     data = json.loads(api_json.read_text())
     source = render_signals_source(data, version)
 
-    version_dir = _SPECIFICATIONS_ROOT / version
+    root = specs_root or _SPECIFICATIONS_ROOT
+    version_dir = root / version
     signals_path = version_dir / "signals.py"
 
     if check:
@@ -1057,7 +1092,7 @@ def generate_signals(
         print_success("Generated signals.py is up to date.")
         return
 
-    _, created = _ensure_version_package(version)
+    _, created = _ensure_version_package(version, specs_root)
     if created:
         print_success(f"Created {version_dir}.")
 
@@ -1094,6 +1129,13 @@ def generate_all(
             help="Only check whether everything is up to date; don't write.",
         ),
     ] = False,
+    specs_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-root",
+            help="Root directory for version packages. Defaults to the built-in specifications/.",
+        ),
+    ] = None,
 ) -> None:
     """Run every codegen step for a specifications/<version>/ package.
 
@@ -1101,17 +1143,26 @@ def generate_all(
     generate-classes, then generate-signals. Skips enum sync if spec.py
     doesn't exist yet (use ``add-version`` to create it).
     """
-    spec_path = _SPECIFICATIONS_ROOT / version / "spec.py"
+    root = specs_root or _SPECIFICATIONS_ROOT
+    spec_path = root / version / "spec.py"
     if spec_path.exists():
-        sync_enums(version=version, api_json=api_json, check=check)
+        sync_enums(
+            version=version, api_json=api_json, check=check, specs_root=specs_root
+        )
     else:
         print_warning(
             f"Skipping enum sync: {spec_path} not found. "
             "Use 'gli specifications add-version' to create it."
         )
-    generate_builtin_classes(version=version, api_json=api_json, check=check)
-    generate_classes(version=version, api_json=api_json, check=check)
-    generate_signals(version=version, api_json=api_json, check=check)
+    generate_builtin_classes(
+        version=version, api_json=api_json, check=check, specs_root=specs_root
+    )
+    generate_classes(
+        version=version, api_json=api_json, check=check, specs_root=specs_root
+    )
+    generate_signals(
+        version=version, api_json=api_json, check=check, specs_root=specs_root
+    )
 
     if check:
         print_success(f"Everything for {version} is up to date.")
@@ -1473,6 +1524,13 @@ def add_version(
             help="Skip base version comparison (for the first version added).",
         ),
     ] = False,
+    specs_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-root",
+            help="Root directory for version packages. Defaults to the built-in specifications/.",
+        ),
+    ] = None,
 ) -> None:
     """Orchestrate the full version-addition workflow: diff, generate spec.py, sync enums, generate code."""
     if not _VERSION_RE.match(version):
@@ -1517,7 +1575,7 @@ def add_version(
         )
         raise typer.Exit(code=EXIT_ERROR)
 
-    version_dir, created = _ensure_version_package(version)
+    version_dir, created = _ensure_version_package(version, specs_root)
     if created:
         print_success(f"Created {version_dir}.")
 
@@ -1528,10 +1586,10 @@ def add_version(
     _write_if_changed(spec_path, spec_source)
     print_success(f"Generated {spec_path}.")
 
-    sync_enums(version=version, api_json=api_json)
-    generate_builtin_classes(version=version, api_json=api_json)
-    generate_classes(version=version, api_json=api_json)
-    generate_signals(version=version, api_json=api_json)
+    sync_enums(version=version, api_json=api_json, specs_root=specs_root)
+    generate_builtin_classes(version=version, api_json=api_json, specs_root=specs_root)
+    generate_classes(version=version, api_json=api_json, specs_root=specs_root)
+    generate_signals(version=version, api_json=api_json, specs_root=specs_root)
 
     init_path = version_dir / "__init__.py"
     suffix = _version_to_class_suffix(version)
