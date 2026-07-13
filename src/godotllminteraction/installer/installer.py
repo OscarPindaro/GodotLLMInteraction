@@ -27,7 +27,7 @@ _STDIO_SERVER_CONFIG = {
     "command": "uvx",
     "args": [
         "--from",
-        "git+https://github.com/OscarPindaro/GodotLLMInteraction.git",
+        "git+https://github.com/OscarPindaro/GodotLLMInteraction.git[mcp,kb]",
         "gli",
         "mcp",
     ],
@@ -38,7 +38,7 @@ _BARE_STDIO_SERVER_CONFIG = {
     "command": "uvx",
     "args": [
         "--from",
-        "git+https://github.com/OscarPindaro/GodotLLMInteraction.git",
+        "git+https://github.com/OscarPindaro/GodotLLMInteraction.git[mcp,kb]",
         "gli",
         "mcp",
     ],

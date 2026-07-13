@@ -38,6 +38,22 @@ def _xdg_config() -> Path:
     return _home() / ".config"
 
 
+def _windsurf_config_paths() -> list[Path]:
+    h = _home()
+    paths = [h / ".codeium" / "windsurf" / "mcp_config.json"]
+    if sys.platform == "darwin":
+        paths = [h / "Library" / "Application Support" / "Windsurf" / "mcp_config.json"]
+    return paths
+
+
+def _windsurf_detect_paths() -> list[Path]:
+    h = _home()
+    paths = [h / ".codeium" / "windsurf"]
+    if sys.platform == "darwin":
+        paths = [h / "Library" / "Application Support" / "Windsurf"]
+    return paths
+
+
 def _vscode_settings() -> list[Path]:
     base = _xdg_config() / "Code" / "User"
     candidates = [base / "settings.json"]
@@ -64,11 +80,11 @@ def all_targets() -> list[AgentTarget]:
     return [
         AgentTarget(
             id="windsurf",
-            name="Windsurf",
-            config_paths=[cfg / "windsurf" / "mcp_config.json"],
+            name="Windsurf / Devin Desktop",
+            config_paths=_windsurf_config_paths(),
             mcp_key="mcpServers",
             bare_config=True,
-            detect_paths=[cfg / "windsurf"],
+            detect_paths=_windsurf_detect_paths(),
         ),
         AgentTarget(
             id="claude",

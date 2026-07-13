@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -106,9 +104,12 @@ class TestDetectInstalled:
         assert isinstance(result, list)
 
 
-class TestXdgConfigResolution:
-    def test_xdg_config_home_override(self, tmp_path: Path):
-        with patch.dict(os.environ, {"XDG_CONFIG_HOME": str(tmp_path)}):
-            targets = all_targets()
-            windsurf = next(t for t in targets if t.id == "windsurf")
-            assert windsurf.config_paths[0] == tmp_path / "windsurf" / "mcp_config.json"
+class TestWindsurfPaths:
+    def test_windsurf_config_path_is_codeium(self):
+        targets = all_targets()
+        windsurf = next(t for t in targets if t.id == "windsurf")
+        h = Path.home()
+        assert (
+            windsurf.config_paths[0] == h / ".codeium" / "windsurf" / "mcp_config.json"
+        )
+        assert windsurf.detect_paths[0] == h / ".codeium" / "windsurf"
