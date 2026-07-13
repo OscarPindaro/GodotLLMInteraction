@@ -580,6 +580,15 @@ Member variables are initialized in this order — this is critical to understan
 
 This means: `@export` values override script defaults (step 4 after step 2), and `@onready` values override everything (step 5 after step 4) — which is why combining `@export` and `@onready` on the same variable is forbidden.
 
+### Node Lifecycle Order
+
+When a scene tree loads, Godot calls lifecycle methods in a specific order:
+
+- **`_enter_tree`** runs **top-down**: parent first, then children.
+- **`_ready`** runs **bottom-up**: children first, then parent.
+
+This means a parent's `_ready()` runs **after** all its children are ready. A child cannot rely on setup done in its parent's `_ready()` — the parent hasn't run yet when the child's `_ready()` executes. If a child needs data from the parent, the parent must set it before the tree enters (e.g. via exported properties in the scene file) or the child must `await` a signal.
+
 ### Static Variables
 
 Avoid static variables unless specifically needed. They belong to the class, not instances, and prevent scripts from being unloaded (memory leak risk). If you must use them, add `@static_unload` at the top of the script to allow cleanup:
@@ -932,6 +941,240 @@ print(event.amount)  # Much clearer than event["amount"]
 ```
 
 Prefer inner classes over dictionaries for structured data. Use dictionaries only for truly dynamic key-value data.
+
+#### Dataclass pattern for fixed-key dictionaries
+
+Whenever a dictionary has a fixed set of keys — whether stored in an array, returned from a function, passed between functions, or used as a local variable — **always** define an inner class (or standalone `class_name`) instead. Dictionaries with fixed keys lose type safety, autocomplete, and are error-prone (typos in string keys silently fail). This is the GDScript equivalent of a dataclass.
+
+This applies to:
+- `Array[Dictionary]` collections where all items share the same keys (e.g. a pending-move queue, event queue, list of spawn requests)
+- Functions that return a `Dictionary` with a known shape, when that dictionary is consumed by other code
+- Local variables or member variables that hold a `Dictionary` with fixed keys
+
+**Bad:**
+```gdscript
+var _pending_moves: Array[Dictionary] = []
+
+func request_move(actor: Node, target: Vector2i) -> bool:
+    _pending_moves.append({"actor": actor, "target": target_cell})
+    return true
+
+# Later: no autocomplete, no type checking, typo-prone
+var move = _pending_moves[0]
+move.actpr  # Silent failure — key doesn't exist
+```
+
+```gdscript
+# Also bad: function returns a fixed-shape dictionary
+func roll_damage_against(defender: Stats) -> Dictionary:
+    return {"damage": dmg, "crit": is_crit, "dodged": false}
+
+# Caller has no type info, no autocomplete
+var result = roll_damage_against(stats)
+result.damge  # Silent failure
+```
+
+**Good:**
+```gdscript
+class PendingMove:
+    var actor: Node
+    var target: Vector2i
+
+    func _init(p_actor: Node, p_target: Vector2i) -> void:
+        actor = p_actor
+        target = p_target
+
+var _pending_moves: Array[PendingMove] = []
+
+func request_move(actor: Node, target: Vector2i) -> bool:
+    _pending_moves.append(PendingMove.new(actor, target))
+    return true
+
+# Later: full autocomplete and type checking
+var move = _pending_moves[0]
+move.actor  # Autocompletes, type-checked as Node
+move.actpr  # Compile error — catches the typo
+```
+
+```gdscript
+# Also good: function returns a typed object
+class DamageResult:
+    var damage: int
+    var crit: bool
+    var dodged: bool
+
+    func _init(p_damage: int, p_crit: bool, p_dodged: bool) -> void:
+        damage = p_damage
+        crit = p_crit
+        dodged = p_dodged
+
+func roll_damage_against(defender: Stats) -> DamageResult:
+    return DamageResult.new(dmg, is_crit, false)
+
+# Caller gets full type info and autocomplete
+var result = roll_damage_against(stats)
+result.damage  # Autocompletes, type-checked as int
+result.damge   # Compile error
+```
+
+**Rules:**
+- If a dictionary has a known, fixed set of keys → use a class instead.
+- If the data structure is internal to a single class or very tightly coupled to it (e.g. only that class creates and consumes it) → use an **inner class** (`class Foo:` inside the script).
+- If the data structure is used by more than one script, returned from public APIs, or could reasonably be reused → put it in a **standalone `class_name` file** under a `dataclasses/` folder in the project. This makes it importable, autocompletes across files, and keeps the parent script focused.
+- If keys vary per item or are truly dynamic (e.g. a lookup table, JSON from external source, arbitrary metadata) → use `Dictionary`.
+
+#### Resources vs inner classes vs dictionaries
+
+When you need a structured data container, choose based on **mutability**, **sharing**, and **persistence**:
+
+| Need | Use | Why |
+|------|-----|-----|
+| Mutable, non-shared, internal data (action queues, pending moves, combat results) | **Inner class** | Lightweight, no file overhead, each instance is independent. Not shared by reference. |
+| Designer-editable data saved as `.tres`, shared between nodes, or passed as a value | **Custom `Resource`** | Inspector-editable, serializable, `@export` + `@tool` pattern. |
+| Truly dynamic key-value data | **`Dictionary`** | Only when keys are not fixed/known at compile time. |
+
+**Custom `Resource` (`extends Resource`):**
+- Use when data needs to be saved as `.tres` files, shared between nodes, edited in the inspector, or passed around as a value type.
+- A `.tres` file is a **single instance** loaded once and shared by reference. If multiple nodes reference the same `.tres`, they all see the same data — mutating it affects everyone.
+- To have separate data per node, either:
+  - Create a new `Resource` instance in code every time (`Stats.new()`) and be careful about ownership, or
+  - Create multiple `.tres` files (e.g. `knight_stats.tres`, `orc_stats.tres`) and assign them in the `.tscn`. (preferred way)
+- If you need per-node copies of a shared resource at runtime, add a `clone()` method that creates a new instance with copied fields. This avoids mutating the shared `.tres`:
+
+```gdscript
+func clone() -> Stats:
+    var s := Stats.new()
+    s.max_hp = max_hp
+    s.hp = hp
+    s.attack = attack
+    s.defense = defense
+    return s
+
+## Or with modifications:
+func clone_modified(atk: int = 0, hp: int = 0) -> Stats:
+    var s := clone()
+    s.attack += atk
+    s.max_hp += hp
+    s.hp = s.max_hp
+    return s
+```
+
+- Use `@tool` + `@export` so the resource is editable in the inspector and updates live in the editor.
+
+```gdscript
+@tool
+class_name Stats
+extends Resource
+
+@export var max_hp: int = 100
+@export var attack: int = 10
+@export var defense: int = 5
+```
+
+**Inner class (mutable, non-shared):**
+- Use for data that is created at runtime, mutated independently per instance,and that's more intuitive to "create" wrt to resources.
+- Perfect for action queues, pending moves, combat results — each instance owns its own copy.
+
+```gdscript
+class PendingMove:
+    var actor: Node
+    var target: Vector2i
+
+    func _init(p_actor: Node, p_target: Vector2i) -> void:
+        actor = p_actor
+        target = p_target
+
+var _pending_moves: Array[PendingMove] = []
+```
+
+**Decision rule:** if you need it in the inspector or saved to disk → `Resource`. If it's internal, mutable, and non-shared → inner class. If keys are dynamic → `Dictionary`.
+
+---
+
+## Scene File Format (`.tscn`)
+
+When writing `.tscn` files by hand or via tools:
+
+- **`load_steps` is deprecated** (Godot 4.6+). Do not include `load_steps=N` in the `[gd_scene]` header. Godot computes it automatically. Including it creates unnecessary diffs.
+- The header should be: `[gd_scene format=3 uid="uid://..."]` (or without `uid` if letting Godot generate it).
+- Assign resources (like `Stats`) in the scene file as sub_resources, not via `Resource.new()` in code. The scene is the right place for per-instance configuration.
+- **Z-ordering:** children render in tree order — later children render on top. Position nodes in the scene tree so that backgrounds/tiles come first and entities come after. If nodes are added at runtime via `add_child()` and end up on top, use `move_child(node, index)` to reorder them. Alternatively, use `z_index` or `CanvasLayer` for explicit control.
+
+---
+
+## Autoloads (Global Singletons)
+
+Autoloads are scripts that load automatically when the game starts and persist across all scene changes. They are the Godot equivalent of singletons — accessible globally by name from any script.
+
+### Creating an Autoload
+
+**Step 1: Write the script.** Place it in an `autoloads/` folder. The script can extend `Node` (non-UI) or `CanvasLayer` (UI overlay). Avoid using `class_name` in autoload scripts — the autoload name already registers the class globally, so adding `class_name` with the same name triggers a "hides a global script class" warning. If you do use `class_name`, make sure it differs from the autoload name (but this creates two global identifiers for one thing, which is confusing):
+
+```gdscript
+## Global event bus for cross-scene communication.
+extends Node
+
+signal combat_triggered(enemy: Node)
+signal combat_finished(player_won: bool)
+signal item_picked_up(item: Node)
+
+func _ready() -> void:
+    # Autoload _ready runs once at startup, before any scene loads.
+    pass
+```
+
+**Step 2: Register in `project.godot`.** Add an entry under `[autoload]`:
+
+```ini
+[autoload]
+
+EventBus="*res://examples/hero_rpg/autoloads/event_bus.gd"
+TurnClock="*res://examples/hero_rpg/autoloads/turn_clock.gd"
+```
+
+- The `*` prefix means the autoload is **enabled**. Without `*`, it's registered but disabled.
+- The name on the left (`EventBus`) becomes the global singleton name.
+- The path on the right is the `res://` path to the script.
+
+**Step 3: Use it anywhere.** No `preload`, no `load`, no `get_node` — just use the name directly:
+
+```gdscript
+func _on_combat_triggered(enemy: Node) -> void:
+    EventBus.combat_triggered.emit(enemy)
+
+# Connect to autoload signals:
+func _ready() -> void:
+    EventBus.combat_finished.connect(_on_battle_end)
+```
+
+### When to Use Autoloads
+
+- **Signal buses** — decouple emitters from listeners across scenes (e.g. `EventBus`, `FieldEvents`)
+- **Global state** — player party, inventory, game phase (e.g. `Player`, `TurnClock`)
+- **Registry/lookup** — bidirectional mappings that multiple scenes need (e.g. `GamepieceRegistry`)
+- **Manager services** — audio, save/load, transitions that persist across scenes
+
+### When NOT to Use Autoloads
+
+- **Scene-specific logic** — if it only matters in one scene, use a regular node in that scene
+- **Per-instance data** — autoloads are singletons; all scenes share the same instance
+- **Avoid god objects** — keep autoloads focused on one responsibility. Split into multiple autoloads rather than cramming everything into one.
+
+### Autoload Lifecycle
+
+- Autoloads load **before** the first scene, in the order listed in `project.godot`.
+- Their `_ready()` runs once at startup.
+- They are never freed — they persist for the entire game session.
+- They are accessible from any scene via their global name.
+- If an autoload extends `CanvasLayer`, it renders on top of (or below, depending on `layer`) the main scene.
+
+### Autoloads vs Static Classes
+
+Autoloads are preferred over static classes/variables for global access because:
+- They have a `_ready()` lifecycle (can connect signals, initialize state)
+- They can hold references to nodes and resources
+- They participate in the scene tree (can receive `_process`, `_input`, etc.)
+- Static variables prevent script unloading and have no lifecycle
 
 ---
 
