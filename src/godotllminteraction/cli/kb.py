@@ -157,9 +157,20 @@ def list_entries_cmd(
             print_text("No entries.")
             return
         for e in entries:
-            print_text(
-                f"{e.id}: {e.questions[0]} ({len(e.questions)} q, {len(e.file_paths)} files)"
-            )
+            label = e.description if e.description else e.questions[0]
+            if len(label) > 80:
+                label = label[:77] + "..."
+            sources = []
+            if e.file_paths:
+                sources.append(f"{len(e.file_paths)} files")
+            if e.folder_paths:
+                sources.append(f"{len(e.folder_paths)} folders")
+            if e.github_urls:
+                sources.append(f"{len(e.github_urls)} github")
+            if e.answer_text:
+                sources.append("text")
+            src_str = ", ".join(sources) if sources else "none"
+            print_text(f"{e.id}: {label} ({len(e.questions)} q, {src_str})")
 
 
 @app.command()

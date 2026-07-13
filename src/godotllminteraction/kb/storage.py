@@ -23,9 +23,9 @@ from godotllminteraction.kb.types import KbEntry
 
 
 def _project_slug(project_path: Path) -> str:
-    resolved = str(project_path.resolve())
-    digest = hashlib.sha256(resolved.encode()).hexdigest()[:8]
-    return f"{project_path.name}_{digest}"
+    resolved = project_path.resolve()
+    digest = hashlib.sha256(str(resolved).encode()).hexdigest()[:8]
+    return f"{resolved.name}_{digest}"
 
 
 def resolve_kb_folder(project_path: Path | None = None) -> Path:
