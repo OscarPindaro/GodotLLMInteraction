@@ -490,3 +490,479 @@ by path.
    spread = 30.0
    ...
    ```
+
+---
+
+## KB Improvement Proposals
+
+The following proposals improve the gli knowledge base, ordered by priority.
+They build on each other: the folder-based storage layout (§15) is the
+foundation that enables semble code search (§16), chunk-based retrieval (§17),
+and eventually multi-KB support (§18).
+
+### 15. `kb_persist_github` — cache GitHub content locally
+
+**Problem:** GitHub URLs in KB entries are fetched fresh from the network on
+**every search** that matches the entry (`build_answer` → `_fetch_github_url`).
+There is no caching. If the entry matches 10 searches, that's 10 HTTP requests
+to `raw.githubusercontent.com` or the GitHub Contents API. If the link goes
+dead, the answer is lost permanently.
+
+**Proposal:** At registration time, download GitHub content to the local KB
+folder and store the local path alongside the original URL. The `KbEntry` JSON
+interface stays unchanged — the caller still passes `github_urls` as before.
+The storage layer resolves them to local files internally.
+
+**New on-disk KB structure** (per entry, inside the KB folder):
+
+```
+<kb_folder>/
+  entries/
+    <entry_id>.json          # metadata + resolved paths
+  files/
+    <entry_id>/
+      questions.yaml         # questions for this entry
+      answer.txt             # inline answer_text (if any)
+      github/
+        <owner>__<repo>__<branch>/
+          blob/
+            <path...>        # mirrors the original repo path
+          tree/
+            <path...>/       # mirrors the original folder structure
+              file1.gd
+              file2.gd
+      local_files/           # copies of registered file_paths
+      local_folders/         # copies of registered folder_paths
+  index.npz                  # question embeddings (existing)
+  semble_index/              # semble code index (see §16)
+```
+
+**Entry JSON changes** (additive, backward-compatible):
+
+```json
+{
+  "id": "...",
+  "questions": ["..."],
+  "answer_text": "inline text",
+  "file_paths": ["src/foo.gd"],
+  "folder_paths": ["examples/combat/"],
+  "github_urls": ["https://github.com/owner/repo/blob/main/gun.gd"],
+  "resolved_github_urls": [
+    {
+      "original_url": "https://github.com/owner/repo/blob/main/gun.gd",
+      "type": "blob",
+      "local_path": "files/<entry_id>/github/owner__repo__main/blob/gun.gd",
+      "commit_sha": "a1b2c3d4e5f6...",
+      "fetched_at": "2026-07-13T23:30:00"
+    }
+  ],
+  "description": "...",
+  "tags": ["..."],
+  "created_at": "..."
+}
+```
+
+**Questions storage — `questions.yaml`:**
+
+Questions are stored as a YAML file for easy human inspection and editing:
+
+```yaml
+questions:
+  - "How do I make an auto-aim turret with Area2D?"
+  - "How to use look_at for 2D targeting?"
+  - |
+    A multi-line question can be written as a YAML block scalar
+    so newlines are preserved without escaping.
+```
+
+YAML handles multi-line strings cleanly (block scalars), is easy to open and
+inspect, and avoids the escaping mess of one-line-per-question TXT files.
+
+**Tool behavior:**
+
+1. At `kb_register` time, for each `github_url`:
+   - Detect blob (`/blob/`) vs tree (`/tree/`) URL.
+   - Resolve the branch ref to a commit SHA via the GitHub API
+     (`GET /repos/{owner}/{repo}/commits/{branch}`). This pins the exact
+     version we downloaded.
+   - Fetch the content (blob: raw file; tree: all text files in the folder
+     via Contents API, preserving the original folder structure).
+   - Write to `files/<entry_id>/github/<owner>__<repo>__<branch>/blob|tree/<path>`.
+   - Store the local path, `commit_sha`, and `fetched_at` in
+     `resolved_github_urls` in the entry JSON.
+2. At `kb_search` time, `build_answer`:
+   - For entries with `resolved_github_urls`, read from the **local cached
+     path** instead of hitting the network.
+   - If the local file is missing (deleted manually), fall back to fetching
+     from the network and log a warning.
+   - The returned answer format is unchanged — the LLM sees `<url>\n<content>`
+     just like now.
+3. For `file_paths` and `folder_paths`: if the original path no longer exists
+   on disk, return the KB-cached copy path. This makes entries resilient to
+   file moves/deletions.
+4. A `kb_refresh_github` tool (or `--refresh` flag on `kb_register`) re-downloads
+   content for entries whose GitHub source may have updated:
+   - Resolve the branch ref to the current commit SHA.
+   - Compare against the stored `commit_sha`. If unchanged, skip (content is
+     identical, no re-download needed).
+   - If changed, re-download the content, update `commit_sha` and `fetched_at`,
+     and flag the semble index for re-indexing (see §16).
+   - Optionally keep the old version in a `versions/` subfolder with the old
+     commit SHA as a suffix, so diffs are inspectable. This is off by default.
+
+**Why this matters for semble (§16):** Semble indexes local files. Without
+local copies of GitHub content, semble cannot index those entries at all.
+This step is the prerequisite.
+
+### 16. `kb_code_search` — semble-powered code-aware search
+
+**Problem:** The current KB search embeds only the **questions** and returns
+whole entries. It has no awareness of the actual code content in the answer
+files. A query like `"Area2D get_overlapping_bodies"` would match poorly
+because it's code vocabulary, not natural-language question phrasing. Semble
+solves exactly this with hybrid semantic + BM25 retrieval over code chunks.
+
+**Proposal:** A `kb_code_search` tool that uses semble to index the KB's local
+file storage (from §15) and returns code-aware chunk results.
+
+**How it works:**
+
+1. **Indexing:** Point `SembleIndex.from_path` at the KB's `files/` directory.
+   Semble handles tree-sitter chunking, dual indexing (semantic + BM25), and
+   disk caching. The semble index lives at `<kb_folder>/semble_index/`.
+2. **Mapping:** A sidecar `chunk_to_entry.json` maps each indexed file path to
+   its parent `entry_id`, so chunk results can be traced back to KB entries.
+3. **Search:** Call `semble.search(query, top_k)` → get ranked chunks. Group
+   chunks by `entry_id` (same dedup pattern as current `search_kb`). Return
+   entry metadata + the matched chunks (not whole files).
+4. **Cache invalidation:** Reuse semble's built-in mtime-based invalidation.
+   When new entries are registered, their files are added to the `files/`
+   directory; semble detects the changes on next search and re-indexes.
+
+**Return format:**
+
+```json
+{
+  "ok": true,
+  "results": [
+    {
+      "entry": { "id": "...", "questions": [...], "description": "..." },
+      "score": 0.85,
+      "matched_chunks": [
+        {
+          "file_path": "files/<id>/github/.../gun.gd",
+          "start_line": 15,
+          "end_line": 32,
+          "content": "func _process(delta):\n    var bodies = get_overlapping_bodies()\n    ..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Coexistence with existing `kb_search`:** Both tools are available. The LLM
+chooses:
+- `kb_search` — question-semantic matching, returns full answers (current
+  behavior, good for "how do I..." queries).
+- `kb_code_search` — code-aware hybrid search, returns chunks (good for
+  "where is `get_overlapping_bodies` used" or symbol-based queries).
+
+**Scaling to large KBs — ANN backends (open-ended):**
+
+Semble currently uses `vicinity`'s `BASIC` backend (brute-force cosine
+similarity, O(N×D) per query). This is fine for typical repos (~500-5000
+chunks, ~1.5ms per query). As the KB grows — many entries, many GitHub
+folders cached locally — the chunk count could reach 50k-100k+.
+
+`vicinity` ([MinishLab/vicinity](https://github.com/MinishLab/vicinity)) is
+MinishLab's dedicated ANN library with a unified interface across multiple
+backends:
+
+| Backend | Algorithm | Insertion | Deletion |
+|---------|-----------|-----------|----------|
+| BASIC   | Flat exact | Yes | Yes |
+| HNSW    | Hierarchical Navigable Small World (`hnswlib`) | Yes | No (rebuild) |
+| USEARCH | Optimized HNSW (`usearch`) | Yes | No (rebuild) |
+| FAISS   | HNSW / IVF / etc. (`faiss`) | Yes | No (rebuild) |
+| ANNOY   | Random projection trees (`annoy`) | No (read-only) | No |
+| PYNNDESCENT | Approximate kNN graph (`pynndescent`) | No | No |
+| VOYAGER | Spotify's fast ANN (`voyager`) | Yes | No (rebuild) |
+
+Swapping is a backend change, not an architecture change — the `query()`
+interface is identical across all backends. Semble's `SelectableBasicBackend`
+subclasses `CosineBasicBackend`, so a KB-specific subclass could use HNSW or
+USEARCH instead.
+
+**Tradeoff note:** ANN backends don't support dynamic deletion (must rebuild
+the whole index). Since `kb_remove` is a rare operation and the KB index is
+already rebuilt on removal in the current implementation, this is acceptable.
+Insertion (the common case, `kb_register`) is supported by HNSW, USEARCH, and
+FAISS.
+
+**When to revisit:** No immediate need. Profile at 10k+ chunks. If query
+latency exceeds ~50ms, swap to HNSW or USEARCH. The `vicinity` evaluation
+tooling (`evaluate()` method) can benchmark recall vs. QPS for each backend
+on the actual KB data before committing to a choice.
+
+### 17. `kb_chunk_search` — token-efficient chunked retrieval
+
+**Problem:** Even with semble (§16), the current `build_answer` returns the
+**entire** file content for every matching entry. For large files this wastes
+tokens — the LLM may only need the specific function or class that matched.
+
+**Proposal:** A `kb_chunk_search` tool that returns only the matched chunks
+(like §16) plus a companion `kb_fetch_file` tool to retrieve the full parent
+file on demand.
+
+**Tool behavior:**
+
+1. `kb_chunk_search(query, top_k)`:
+   - Same semble search as §16.
+   - Returns **only the matched chunks** with line ranges, not full files.
+   - Each chunk includes a `parent_file` path and `entry_id` for follow-up.
+2. `kb_fetch_file(entry_id, file_path)`:
+   - Returns the full content of a specific file from an entry's local storage.
+   - Used when the LLM needs more context around a chunk.
+
+This two-step pattern (search chunks → fetch full file if needed) mirrors
+semble's own `search` + `read_file` workflow and dramatically reduces token
+usage for large codebases.
+
+### 18. Multi-KB support (tentative, future)
+
+**Problem:** Currently one project → one KB. Some projects may benefit from
+multiple named KBs (e.g., one for Godot patterns, one for project-specific
+scripts, one for external reference code).
+
+**Proposal:** Allow naming KBs at registration and search time:
+
+```
+kb_register --kb godot_patterns --question "..." --file ...
+kb_search --kb godot_patterns "how to add a node"
+```
+
+This is tentative — no immediate need. The folder-based storage from §15
+makes this straightforward (just add a `kb_name` subfolder), but it's not
+required for the semble integration or chunk-based retrieval.
+
+### 19. Folder-based KB loading (future)
+
+**Problem:** The current KB is stored in a platform-specific data directory
+(`~/.local/share/gli/<slug>/kb/`), making it hard to inspect, version-control,
+or share between machines.
+
+**Proposal:** Support loading a KB from any folder that has the expected
+structure (from §15):
+
+```
+my_kb/
+  entries/
+    *.json
+  files/
+    <entry_id>/
+      ...
+  index.npz
+  semble_index/
+```
+
+Point `kb_search` / `kb_register` at any folder with `--kb-location <path>`
+(or `GLI_KB_LOCATION`), and if the structure matches, it loads directly. This
+enables:
+- Version-controllable KBs committed alongside the project.
+- Portable KBs shared between team members.
+- Project-local KBs in `project_root/.gli/kb/`.
+
+This is a natural extension of the §15 storage layout — the on-disk format is
+already self-contained, it just needs a loader that accepts arbitrary paths.
+
+### 20. `kb_feedback` — record useful results for dataset building
+
+**Problem:** The KB has no way to know which search results were actually
+useful to the LLM. Over time, this creates a dataset of (query, useful answer)
+pairs that can be used to improve search quality, prune bad entries, reword
+questions, and (eventually) fine-tune embeddings or train a reranker.
+
+**Key design decision — snapshot, don't reference:**
+
+Feedback entries store a **snapshot** of the entry's content at feedback time,
+not just the `entry_id`. If the entry is later removed or modified, the
+feedback data is still complete and usable as a training dataset. The feedback
+log is a self-contained dataset, not a reference table that breaks when
+entries are deleted.
+
+**Tool signature:**
+
+```
+kb_feedback(
+    query: str,                          # the original search query
+    useful: list[str] = [],              # entry_ids that were helpful
+    not_useful: list[str] = [],          # entry_ids that were noise
+    chunk_ids: list[str] = [],           # (with §16/§17) specific chunk IDs
+    task_context: str = "",              # optional: what the LLM was trying to do
+    search_tool: str = "kb_search",      # which tool was used
+) -> str
+```
+
+The LLM reports only what it actually used. Absence from both lists = "didn't
+look at it" (neutral, not negative).
+
+**Storage — feedback log in the KB folder:**
+
+```
+<kb_folder>/
+  feedback/
+    feedback.jsonl          # append-only, one JSON object per feedback event
+    snapshots/
+      <entry_id>.json       # snapshot of entry at feedback time (deduplicated)
+```
+
+Each line in `feedback.jsonl`:
+
+```json
+{
+  "query": "how to make area2d turret",
+  "search_tool": "kb_search",
+  "model": "minishlab/potion-code-16M",
+  "model_version": "1.0",
+  "useful": ["a1b2c3...", "e4f5g6..."],
+  "not_useful": ["d7e8f9..."],
+  "chunk_ids": ["a1b2c3...:gun.gd:15-32"],
+  "task_context": "building a tower defense enemy targeting system",
+  "timestamp": "2026-07-13T23:34:00"
+}
+```
+
+**Snapshots** are stored separately in `snapshots/<entry_id>.json` and are
+deduplicated — if the entry hasn't changed since the last snapshot, we reuse
+the existing file. The snapshot contains the full `KbEntry` JSON plus a
+content hash, so we can detect if the entry was modified between feedback
+events:
+
+```json
+{
+  "entry_id": "a1b2c3...",
+  "snapshot_at": "2026-07-13T23:34:00",
+  "content_hash": "sha256:...",
+  "entry": {
+    "questions": ["..."],
+    "answer_text": "...",
+    "file_paths": ["..."],
+    "github_urls": ["..."],
+    "resolved_github_urls": [...],
+    "description": "...",
+    "tags": ["..."]
+  }
+}
+```
+
+If the entry is later removed or modified, the snapshot preserves the exact
+version the LLM found useful. This makes the feedback log a permanent,
+self-contained training dataset.
+
+**Chunk IDs** (with §16/§17 semble integration): chunks are identified by
+`(entry_id, file_path, start_line, end_line)`, encoded as a string:
+`"entry_id:file_path:start-end"`. The snapshot of the parent entry is still
+stored, so the full file context is recoverable even if the entry is deleted.
+
+**Implicit feedback (zero extra calls):**
+
+- **`kb_fetch_file` after `kb_chunk_search`** — if the LLM fetches the full
+  parent file of a chunk, that chunk was useful. Log it automatically.
+- **`kb_search` followed by no feedback** — ambiguous, don't infer anything.
+
+**What the dataset enables:**
+
+1. **Search quality metrics** — precision@k, MRR, recall. Of the top_k
+   results, how many were marked useful? How high was the first useful result?
+2. **Question improvement** — if query Q consistently matches entry X but X is
+   marked `not_useful`, X's questions are misleading. Flag for revision. If
+   query Q never matches entry X but the LLM reports X would have been useful,
+   X needs additional question phrasings.
+3. **Entry pruning** — entries never marked useful across many searches →
+   candidates for removal or question rewording.
+4. **Embedding fine-tuning (future)** — (query, useful_entry) pairs are
+   training data for contrastive learning. (query, not_useful_entry) pairs are
+   hard negatives. Could fine-tune `potion-code-16M` or train a lightweight
+   reranker on top of the KB's specific domain.
+5. **Query clustering** — group similar queries to identify common information
+   needs that the KB serves well or poorly.
+
+**Companion tool — `kb_feedback_stats`:**
+
+```
+kb_feedback_stats(
+    project_path: str = None,
+    metric: str = "precision_at_k",   # precision_at_k | mrr | entry_usage | query_clusters
+    days: int = 30,                   # lookback window
+    model: str = None,                # filter by model (e.g. "minishlab/potion-code-16M")
+) -> str
+```
+
+Returns aggregate stats from the feedback log. Useful for the LLM to
+self-assess or for the user to audit KB quality.
+
+**Model tracking:** each feedback event records the `model` and
+`model_version` used for the search that produced the results. This is
+critical for metrics — if the embedding model is changed (e.g., swapping
+`potion-code-16M` for a larger model), the ranking changes and old metrics
+aren't comparable. `kb_feedback_stats` accepts a `model` filter so you can:
+- Compare precision@k between model A and model B on the same queries.
+- Track metric regression when upgrading models.
+- Exclude feedback from a deprecated model.
+
+When no `model` filter is passed, stats are computed across all models (with
+a per-model breakdown in the output).
+
+**Design considerations:**
+
+- **Append-only**: `feedback.jsonl` is never rewritten. Safe for concurrent
+  writes. No corruption risk.
+- **Privacy**: `task_context` is optional. Default to empty, let the LLM
+  decide.
+- **Backward compatible**: feedback is purely additive. No existing tool
+  changes. The KB works fine without it.
+- **No network**: feedback is local-only. No telemetry sent anywhere.
+- **Snapshot dedup**: if the entry's `content_hash` matches an existing
+  snapshot, skip writing a new one. Snapshots are cheap (one JSON file per
+  unique entry version).
+
+**CLI export — `kb export-feedback` (not an MCP tool):**
+
+The feedback log accumulates over time with full snapshots, which is great for
+durability but verbose for downstream use. A slim CLI command exports a compact
+dataset for those who want it:
+
+```
+uv run python -m godotllminteraction.cli.kb export-feedback \
+    --project /path/to/project \
+    --output feedback_dataset.jsonl \
+    [--format jsonl|csv] \
+    [--since 2026-01-01] \
+    [--include-negative] \
+    [--resolve-content] \
+    [--compact]
+```
+
+**`--compact` (default):** one line per feedback event with only the fields
+needed for training/analysis — no full entry snapshots, just `entry_id` +
+`content_hash` for traceability back to the KB:
+
+```json
+{"query": "how to make area2d turret", "useful": ["a1b2c3..."], "not_useful": ["d7e8f9..."], "content_hashes": {"a1b2c3...": "sha256:..."}, "timestamp": "2026-07-13T23:34:00"}
+```
+
+**`--resolve-content`:** inline the actual answer content from snapshots into
+each line, producing a fully self-contained training file (no KB needed to
+use it):
+
+```json
+{"query": "how to make area2d turret", "useful": [{"entry_id": "a1b2c3...", "questions": [...], "answer_text": "...", "content_hash": "sha256:..."}], "timestamp": "2026-07-13T23:34:00"}
+```
+
+**`--include-negative`:** include `not_useful` entries in the export (off by
+default, since most use cases want positive pairs only).
+
+This command is CLI-only — it's a batch operation for dataset building, not
+something the LLM calls during a coding session. The MCP tools (`kb_feedback`,
+`kb_feedback_stats`) handle the real-time loop; the CLI handles the export.
