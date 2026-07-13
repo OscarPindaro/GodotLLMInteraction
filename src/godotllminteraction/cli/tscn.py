@@ -704,3 +704,140 @@ def validate(
         else:
             print_error(f"Validation failed with exit code {result.exit_code}.")
     raise typer.Exit(code=EXIT_OK if result.ok else EXIT_ERROR)
+
+
+@app.command("create-scene")
+def create_scene(
+    output_path: Annotated[
+        Path,
+        typer.Argument(help="Output .tscn file path to create."),
+    ],
+    tree: Annotated[
+        Optional[str],
+        typer.Option(
+            "--tree",
+            help="Inline tree-format text. Mutually exclusive with --tree-file/--json-file/--json.",
+        ),
+    ] = None,
+    tree_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--tree-file",
+            help="File containing tree-format text. Mutually exclusive with --tree/--json-file.",
+        ),
+    ] = None,
+    json_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--json-file",
+            help="File containing JSON-format spec. Mutually exclusive with --tree/--tree-file/--json.",
+        ),
+    ] = None,
+    json_spec: Annotated[
+        Optional[str],
+        typer.Option(
+            "--json",
+            help="Inline JSON-format spec. Mutually exclusive with --tree/--tree-file/--json-file.",
+        ),
+    ] = None,
+    project: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--project",
+            "-p",
+            help="Godot project directory for class_name resolution.",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+        ),
+    ] = None,
+    overwrite: Annotated[
+        bool, typer.Option("--overwrite", help="Replace existing file.")
+    ] = False,
+    validate: Annotated[
+        bool,
+        typer.Option(
+            "--validate",
+            help="Run Godot --check-only after writing.",
+        ),
+    ] = False,
+    strict: Annotated[bool, _STRICT_OPTION] = True,
+    json_output: Annotated[bool, _JSON_OPTION] = False,
+) -> None:
+    """Create a complete .tscn scene from a tree or JSON description."""
+    inputs = [tree, tree_file, json_file, json_spec]
+    provided = [x for x in inputs if x is not None]
+    if len(provided) == 0:
+        print_error("Provide --tree, --tree-file, --json, or --json-file.")
+        raise typer.Exit(code=EXIT_USAGE)
+    if len(provided) > 1:
+        print_error("Provide exactly one of --tree, --tree-file, --json, --json-file.")
+        raise typer.Exit(code=EXIT_USAGE)
+
+    if output_path.exists() and not overwrite:
+        print_error(f"File already exists: {output_path}. Use --overwrite to replace.")
+        raise typer.Exit(code=EXIT_USAGE)
+
+    # Read input.
+    if tree is not None:
+        spec = tscn_lib.parse_tree(tree)
+    elif tree_file is not None:
+        spec = tscn_lib.parse_tree(tree_file.read_text())
+    elif json_spec is not None:
+        import json as _json
+
+        spec = tscn_lib.parse_json(_json.loads(json_spec))
+    else:
+        import json as _json
+
+        spec = tscn_lib.parse_json(_json.loads(json_file.read_text()))
+
+    # Resolve project path.
+    effective_project = project or tscn_lib.find_project_path(output_path.parent)
+    resolver = (
+        tscn_lib.ClassResolver(effective_project)
+        if effective_project is not None
+        else None
+    )
+
+    try:
+        scene = tscn_lib.build_scene(spec, class_resolver=resolver, strict=strict)
+    except TscnError as exc:
+        print_error(str(exc))
+        raise typer.Exit(code=EXIT_ERROR) from exc
+
+    text = tscn_lib.dump_scene(scene)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(text)
+
+    validation_result = None
+    if validate:
+        try:
+            godot = None
+            check = tscn_lib.check_scene(
+                output_path.name,
+                project_dir=effective_project or output_path.parent,
+                godot=godot,
+            )
+            validation_result = check.model_dump()
+        except GodotNotFoundError as exc:
+            validation_result = {"ok": False, "error": str(exc)}
+
+    if json_output:
+        _emit_json(
+            {
+                "ok": True,
+                "output": str(output_path),
+                "validation": validation_result,
+            }
+        )
+    else:
+        print_success(f"Created scene: {output_path}")
+        if validation_result is not None:
+            if validation_result.get("ok"):
+                print_success("Validation passed.")
+            else:
+                print_error(
+                    f"Validation failed: {validation_result.get('error', 'unknown')}"
+                )
+    raise typer.Exit(code=EXIT_OK)

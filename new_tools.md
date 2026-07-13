@@ -70,13 +70,14 @@ Enemy (Node2D) [script: res://enemy.gd]
 The tool should:
 1. Generate a valid UID for the scene file.
 2. Create all nodes in the hierarchy in one pass.
-3. Auto-manage ext_resource IDs for scripts and textures.
-4. Resolve `atlas_cell` properties into proper `AtlasTexture` sub_resources.
-5. Validate the resulting scene with `--check-only` and report errors.
+3. Auto-manage ext_resource IDs for scripts.
+4. **Resolve `class_name` types** (not `atlas_cell` — see note below).
+5. Validate the resulting scene with `--check-only` (opt-in; falls back gracefully
+   if Godot is unavailable).
 6. **Support custom `class_name` types:** if a node's `type` is a registered
    `class_name` (e.g. `VisionCone`, `Chest`, `FloorItem`), the tool should:
-   - Look up the script path from Godot's global class cache
-     (`global_script_class_cache.cfg` or via `--import`).
+   - Look up the script path by scanning `.gd` files for `class_name`/`extends`
+     (not `global_script_class_cache.cfg`, which requires Godot to have been run).
    - Automatically attach the script as an `ext_resource` — no need to specify
      `script` separately.
    - Use the parent type (e.g. `Node2D`) as the actual node type in the scene
@@ -86,15 +87,23 @@ The tool should:
    ```
    └── VisionCone [radius: 4, angle: 60]
    ```
+
    instead of:
    ```
    └── VisionCone (Node2D) [script: res://vision_cone.gd, radius: 4, angle: 60]
    ```
 
    The tool reads the class cache to know that `VisionCone` → `Node2D` +
-   `res://vision_cone.gd`. If the class_name is not in the cache, it falls
-   back to treating the type as a built-in Godot type and requires an explicit
-   `script` property.
+   `res://vision_cone.gd`. If the class_name is not in the cache, it rescans
+   the project once, then falls back to treating the type as a built-in Godot
+   type and requires an explicit `script` property.
+
+> **Note on `atlas_cell`:** The original proposal included `atlas_cell`
+> resolution (converting a `(col, row)` + texture path into an `AtlasTexture`
+> sub_resource). This has been **deferred to a separate `add_atlas_texture`
+> tool** (§2). `create_scene` focuses on creating the node tree; resources
+> (textures, atlas textures, shapes) should be added with dedicated commands
+> after the scene exists. This keeps `create_scene` simpler and composable.
 
 This eliminates manual UID/ext_resource management and replaces N sequential
 `mcp0_add_node` calls with a single declarative call.
@@ -966,3 +975,152 @@ default, since most use cases want positive pairs only).
 This command is CLI-only — it's a batch operation for dataset building, not
 something the LLM calls during a coding session. The MCP tools (`kb_feedback`,
 `kb_feedback_stats`) handle the real-time loop; the CLI handles the export.
+
+---
+
+## Cross-platform validation proposals
+
+### 21. `lint` tool — lightweight no-Godot scene validation
+
+> **Note:** This is a more complex proposal than the others above. It does not
+> add a single narrow helper — it promotes an existing internal subsystem (the
+> spec-backed `validate_scene` in `tscn/validation.py`) into a first-class CLI
+> command and MCP tool, with target resolution, multi-file aggregation, and
+> reporting. The validation engine itself already exists and is battle-tested
+> (it powers strict-mode checks on every `add_node` / `update_properties` /
+> `connect_signal` call); the work is wiring it into a standalone, flexible
+> entry point that works without a Godot binary on any platform.
+
+**Problem:** The current `validate` command (and the `mcp0_validate` MCP tool)
+shells out to the Godot binary via `godot --headless --check-only --quit`. This
+means:
+
+- **Godot must be installed** on the machine running gli. On CI, in containers,
+  or on an OS where Godot isn't easily available, `validate` is unusable.
+- **Cross-platform friction:** `find_godot()` searches PATH, `GODOT_BINARY`,
+  and per-OS install locations, but any mismatch (Flatpak, Snap, non-standard
+  install path) requires manual configuration. A lightweight path that needs
+  zero configuration is valuable.
+- **No partial feedback:** Godot's `--check-only` returns a single pass/fail
+  exit code plus opaque stderr. It does not enumerate *which* property on
+  *which* node is wrong, or distinguish errors from warnings — the LLM has to
+  parse free-text output to act on the result.
+
+Meanwhile, gli already ships a pure-Python, spec-backed validator —
+`validate_scene()` in `tscn/validation.py` — that checks:
+
+- **Structure:** exactly one root node, no duplicate sibling names, parent
+  references resolve and appear before children.
+- **Classes:** every node/sub_resource `type` is a known engine class (or
+  degrades to a warning if a script is attached).
+- **Properties:** each property key exists on the class's spec model, and the
+  value's type matches the annotation (bool/int/float/string, builtins like
+  `Vector2(x, y)`, resource refs via `ExtResource`/`SubResource`, typed arrays
+  including `Packed*Array` flat literals). Unknown properties on script-less
+  nodes are errors; on script-attached nodes they're warnings.
+- **Connections:** signal/from/to/method attributes are present, target nodes
+  exist, and the signal is declared on the source node's class (or a warning
+  if the source has a script).
+
+This validator is currently only invoked *internally* by the operation
+appliers (strict mode). It is not exposed as a standalone command or tool.
+
+**Proposal:** A new `lint` command (CLI) and `lint` tool (MCP) that run
+`validate_scene` without requiring Godot. The existing Godot-based `validate`
+command stays untouched — `lint` is the lightweight, always-available
+companion.
+
+**Target resolution — flexible input:**
+
+The `target` argument accepts any of:
+
+| Input | Behavior |
+|-------|----------|
+| A `.tscn` file path | Validate that single file. |
+| A directory path | Validate every `*.tscn` found recursively (`rglob`). |
+| `project.godot` | Validate the containing directory's scenes (same as passing the dir). |
+| A directory containing `project.godot` | Treated as the project root; validate all scenes. |
+
+This mirrors how a user thinks ("lint this scene", "lint this folder", "lint
+the project") without forcing them to know whether they're pointing at a file
+or a directory.
+
+**Aggregated report:**
+
+```
+LintReport:
+  files:
+    - path: "res://scenes/enemy.tscn"
+      ok: false
+      issues:
+        - severity: error
+          message: "unknown property 'helth' for class 'Sprite2D'"
+          node_path: "Enemy/EnemySprite"
+          property: "helth"
+        - severity: warning
+          message: "property 'radius' is not in the Node2D spec; assuming ..."
+          node_path: "Enemy/VisionCone"
+          property: "radius"
+    - path: "res://scenes/player.tscn"
+      ok: true
+      issues: []
+  ok: false            # false if any file has errors
+  error_count: 1
+  warning_count: 1
+```
+
+Parse errors (`ParseError`) on a file become a single error `Issue` on that
+file, so a broken file doesn't abort the whole run — every other file is still
+linted.
+
+**CLI — `gli tscn lint`:**
+
+```
+gli tscn lint <target> [--json]
+```
+
+- `target`: a `.tscn` file, a directory, or `project.godot`.
+- `--json`: print the `LintReport` as JSON on stdout.
+- Text output: per-file issue list (path + `error [node.path]: message`),
+  then a summary line: `1 error, 1 warning across 2 files`.
+- Exit codes: `0` if no errors, `1` if any errors, `2` (usage) for a bad
+  target path.
+
+**MCP — `lint` tool:**
+
+```
+lint(target: str, project: str = ".") -> str   # JSON LintReport
+```
+
+Mirrors the CLI. No `godot` parameter — it is lightweight by design. The
+existing `validate` MCP tool (Godot-based) remains for users who want the
+engine's own check.
+
+**Why this is more complex than the other proposals:**
+
+1. **It promotes an internal subsystem to a public interface** — not a green
+   field helper, but careful wiring of `validate_scene` + `parse_scene` +
+   target resolution + aggregation into both a Typer command and an MCP tool,
+   with consistent exit-code / JSON semantics.
+2. **Multi-file aggregation** — every other tool operates on one scene; `lint`
+   on a directory/project fans out across N files, collects per-file reports,
+   and must handle per-file parse failures gracefully without aborting the run.
+3. **Target resolution logic** — file vs. directory vs. `project.godot` vs.
+   project-root detection is a new piece of path-handling code that doesn't
+   exist yet and needs its own unit tests.
+4. **Dual surface (CLI + MCP)** — must be added in two places with matching
+   behavior, plus tests for both.
+5. **Reporting model** — a new `LintReport` / `FileIssues` pydantic model
+   layer on top of the existing `ValidationReport` / `Issue`, with summary
+   properties (`ok`, `error_count`, `warning_count`).
+
+**Scope boundaries (explicitly out of scope):**
+
+- The Godot-based `validate` command is unchanged.
+- No `class_name` script resolution — unknown script-defined classes already
+  degrade to warnings in `validate_scene`, which is the correct behavior for a
+  no-Godot linter.
+- Single bundled spec version (`v4_7_0` via `default_provider()`); per-project
+  Godot version selection is a separate future concern.
+- `lint` does not catch runtime errors (that's `run_scene`, §6) — it catches
+  structural/spec errors that the offline validator can see.

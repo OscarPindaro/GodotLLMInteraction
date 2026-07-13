@@ -376,6 +376,135 @@ def register(server: FastMCP, ctx: McpContext) -> None:
         return _apply_result_json(result, Path(out_str))
 
     @server.tool()
+    async def create_scene(
+        scene_path: Annotated[
+            str, Field(description="Output .tscn file path to create.")
+        ],
+        tree: Annotated[
+            str | None,
+            Field(
+                description="Tree-format text. Each line: Name (Type) [key: value, unique]. "
+                "Indent with box-drawing (├── └── │) or ASCII (|-- `-- | - _). "
+                "Type is a built-in Godot class or a project class_name. "
+                "'unique' sets unique_name_in_owner. Mutually exclusive with json_spec."
+            ),
+        ] = None,
+        json_spec: Annotated[
+            dict | None,
+            Field(
+                description="JSON scene spec: {root: {name, type, properties, unique, children: [...]}}. "
+                "Mutually exclusive with tree."
+            ),
+        ] = None,
+        project_path: Annotated[
+            str | None,
+            Field(
+                description="Godot project dir for class_name resolution. "
+                "Defaults to the set project path, or auto-detected from scene_path."
+            ),
+        ] = None,
+        overwrite: Annotated[
+            bool,
+            Field(
+                description="If False (default), errors when the file already exists."
+            ),
+        ] = False,
+        validate: Annotated[
+            bool,
+            Field(
+                description="If True, runs Godot --check-only after writing. "
+                "If Godot is not found, the scene is still created and validation "
+                "status is reported in the response."
+            ),
+        ] = False,
+        strict: Annotated[
+            bool,
+            Field(
+                description="If True (default), spec-validation errors abort the operation."
+            ),
+        ] = True,
+    ) -> str:
+        """Create a complete .tscn scene from a tree or JSON description.
+
+        Tree format — one node per line, indentation determines parent:
+          Root (Node2D)
+          ├── Player (CharacterBody2D) [unique]
+          │   └── Camera (Camera2D)
+          └── Label (Label) [text: "Hello", position: Vector2(0, 0)]
+
+        - Name is required; (Type) defaults to Node if omitted.
+        - Type can be a built-in Godot class or a project class_name
+          (resolved via .gd file scanning — script auto-attached).
+        - [key: value, ...] sets properties (Godot literal syntax).
+        - 'unique' keyword in brackets sets unique_name_in_owner.
+        - Properties can span a continuation line starting with '['.
+
+        JSON format: {root: {name, type, properties, unique, children: [...]}}.
+
+        Returns: {ok, output, validation}.
+        """
+        if tree is None and json_spec is None:
+            return _error_json("Exactly one of 'tree' or 'json_spec' must be provided.")
+        if tree is not None and json_spec is not None:
+            return _error_json("Provide 'tree' OR 'json_spec', not both.")
+
+        out = Path(scene_path)
+        if out.exists() and not overwrite:
+            return _error_json(
+                f"File already exists: {scene_path}. Pass overwrite=True to replace."
+            )
+
+        # Resolve project path for class_name lookup.
+        effective_project = project_path or ctx.project_path
+        resolver = None
+        if effective_project is not None:
+            resolver = tscn_lib.ClassResolver(Path(effective_project))
+        else:
+            detected = tscn_lib.find_project_path(out.parent)
+            if detected is not None:
+                resolver = tscn_lib.ClassResolver(detected)
+
+        try:
+            if tree is not None:
+                spec = tscn_lib.parse_tree(tree)
+            else:
+                spec = tscn_lib.parse_json(json_spec)
+            scene = tscn_lib.build_scene(spec, class_resolver=resolver, strict=strict)
+        except (tscn_lib.TscnError, tscn_lib.SceneBuilderError) as exc:
+            return _error_json(str(exc))
+
+        text = tscn_lib.dump_scene(scene)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text)
+
+        validation = None
+        if validate:
+            try:
+                godot = tscn_lib.find_godot()
+                project_dir = (
+                    Path(effective_project)
+                    if effective_project
+                    else (tscn_lib.find_project_path(out.parent) or out.parent)
+                )
+                result = tscn_lib.check_scene(
+                    out.name, project_dir=project_dir, godot=godot
+                )
+                validation = result.model_dump()
+            except tscn_lib.GodotNotFoundError as exc:
+                validation = {"ok": False, "error": str(exc)}
+            except Exception as exc:  # noqa: BLE001
+                validation = {"ok": False, "error": str(exc)}
+
+        return json.dumps(
+            {
+                "ok": True,
+                "output": str(out),
+                "validation": validation,
+            },
+            indent=2,
+        )
+
+    @server.tool()
     async def tree(
         scene_path: Annotated[
             str, Field(description="Path to the .tscn file to inspect.")

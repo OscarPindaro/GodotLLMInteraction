@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from godotllminteraction.tscn.class_cache import ClassInfo, ClassResolver
 from godotllminteraction.tscn.exceptions import (
     OperationError,
     ParseError,
@@ -52,6 +53,15 @@ from godotllminteraction.tscn.operations import (
 from godotllminteraction.tscn.parser import parse_scene
 from godotllminteraction.tscn.paths import ResPath, ScenePath
 from godotllminteraction.tscn.scene import Scene
+from godotllminteraction.tscn.scene_builder import (
+    NodeSpec,
+    SceneBuilderError,
+    build_scene,
+    create_scene,
+    find_project_path,
+    parse_json,
+    parse_tree,
+)
 from godotllminteraction.tscn.specs import SpecProvider, default_provider
 from godotllminteraction.tscn.tree import TreeNode, build_tree, render_tree
 from godotllminteraction.tscn.validation import (
@@ -82,6 +92,8 @@ __all__ = [
     "AddNode",
     "ApplyResult",
     "AttachScript",
+    "ClassInfo",
+    "ClassResolver",
     "ConnectSignal",
     "CreateSubResource",
     "DeleteNode",
@@ -91,6 +103,7 @@ __all__ = [
     "GodotNotFoundError",
     "Issue",
     "MoveNode",
+    "NodeSpec",
     "OpResult",
     "Operation",
     "OpType",
@@ -101,6 +114,7 @@ __all__ = [
     "ResPath",
     "RenameNode",
     "Scene",
+    "SceneBuilderError",
     "ScenePath",
     "SceneValidationError",
     "SpecProvider",
@@ -111,15 +125,20 @@ __all__ = [
     "apply_operation",
     "apply_operations",
     "apply_ops_file",
+    "build_scene",
     "build_tree",
     "check_scene",
+    "create_scene",
     "default_provider",
     "dump_scene",
     "find_godot",
+    "find_project_path",
     "initial_scene",
     "load_ops_file",
     "load_scene",
+    "parse_json",
     "parse_scene",
+    "parse_tree",
     "render_tree",
     "save_scene",
     "validate_scene",
