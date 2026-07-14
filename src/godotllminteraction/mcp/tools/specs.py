@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import re
-from typing import Annotated
+from typing import Annotated, Any, get_args, get_origin
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
@@ -47,6 +47,33 @@ def _provider_for_version(version: str | None) -> SpecProvider:
     return SpecProvider(classes, builtins, signals.SIGNALS)
 
 
+def _annotation_to_godot_type(provider: SpecProvider, annotation: object) -> str:
+    """Convert a pydantic field annotation to a Godot type name string."""
+    if annotation is None:
+        return "Variant"
+    if annotation is Any:
+        return "Variant"
+    if annotation is bool:
+        return "bool"
+    if annotation is int:
+        return "int"
+    if annotation is float:
+        return "float"
+    if annotation is str:
+        return "String"
+
+    origin = get_origin(annotation)
+    if origin is list:
+        args = get_args(annotation)
+        inner = _annotation_to_godot_type(provider, args[0]) if args else "Variant"
+        return f"Array[{inner}]"
+
+    godot_name = provider.godot_name_of_annotation(annotation)
+    if godot_name is not None:
+        return godot_name
+    return "Variant"
+
+
 def register(server: FastMCP, ctx: McpContext) -> None:
 
     @server.tool()
@@ -71,13 +98,19 @@ def register(server: FastMCP, ctx: McpContext) -> None:
         properties: list[dict] = []
         for name, field in model.model_fields.items():
             ann = field.annotation
-            ann_str = str(ann) if ann is not None else "None"
+            type_str = _annotation_to_godot_type(provider, ann)
             properties.append(
-                {"name": name, "type": ann_str, "description": field.description or ""}
+                {"name": name, "type": type_str, "description": field.description or ""}
             )
         signals = provider.signals_of(class_name) or {}
         signals_list = [
-            {"name": sig_name, "info": str(sig_info)}
+            {
+                "name": sig_name,
+                "info": str(sig_info),
+                "arguments": [
+                    {"name": arg.name, "type": arg.type} for arg in sig_info.arguments
+                ],
+            }
             for sig_name, sig_info in signals.items()
         ]
         inheritance: list[str] = []

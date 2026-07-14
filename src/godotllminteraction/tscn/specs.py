@@ -143,6 +143,30 @@ class SpecProvider:
             name = name[: match.start()]
         return self.resolve_class(name) or self.resolve_builtin(name) or annotation
 
+    def godot_name_of_annotation(self, annotation: object) -> str | None:
+        """Resolve a field annotation to a Godot class/builtin name, or None.
+
+        Like ``resolve_annotation`` but returns the bare Godot name string
+        (e.g. ``"Node"``, ``"Color"``, ``"Texture2D"``) instead of the model.
+        Returns ``None`` for primitives (``bool``, ``int``, ``float``,
+        ``str``), ``Any``, ``list``, and anything else that isn't a class or
+        builtin reference.
+        """
+        resolved = self.resolve_annotation(annotation)
+        if isinstance(resolved, type) and issubclass(resolved, BaseModel):
+            return self.godot_name_of(resolved)
+        name: str | None = None
+        if isinstance(resolved, ForwardRef):
+            name = resolved.__forward_arg__
+        elif isinstance(resolved, str):
+            name = resolved
+        if name is None:
+            return None
+        match = _VERSION_SUFFIX_RE.search(name)
+        if match and match.start() > 0:
+            name = name[: match.start()]
+        return name
+
     def signals_of(self, class_name: str) -> dict[str, object] | None:
         """All signals (own + inherited) of a class; None if the class is unknown."""
         model = self.resolve_class(class_name)
