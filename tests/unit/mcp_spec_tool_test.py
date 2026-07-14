@@ -41,6 +41,7 @@ def _spec_json(class_name: str) -> dict:
         godot_name = provider.godot_name_of(base)
         if godot_name is not None:
             inheritance.append(godot_name)
+    inheritance.reverse()
 
     return {
         "ok": True,
@@ -157,11 +158,11 @@ class TestSpecOutput:
     def test_sprite2d_inheritance(self):
         spec = _spec_json("Sprite2D")
         assert spec["inheritance"] == [
-            "Sprite2D",
-            "Node2D",
-            "CanvasItem",
-            "Node",
             "Object",
+            "Node",
+            "CanvasItem",
+            "Node2D",
+            "Sprite2D",
         ]
 
     def test_signal_has_info_and_arguments(self):

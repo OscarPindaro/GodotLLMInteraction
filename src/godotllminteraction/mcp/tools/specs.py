@@ -118,6 +118,7 @@ def register(server: FastMCP, ctx: McpContext) -> None:
             godot_name = provider.godot_name_of(base)
             if godot_name is not None:
                 inheritance.append(godot_name)
+        inheritance.reverse()
         return json.dumps(
             {
                 "ok": True,
