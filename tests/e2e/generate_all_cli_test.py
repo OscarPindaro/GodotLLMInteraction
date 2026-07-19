@@ -14,7 +14,16 @@ pytestmark = [pytest.mark.cli, pytest.mark.specs]
 
 FAKE_API = {
     "utility_functions": [],
-    "global_enums": [],
+    "global_enums": [
+        {
+            "name": "Key",
+            "is_bitfield": False,
+            "values": [
+                {"name": "KEY_A", "value": 65},
+                {"name": "KEY_ESCAPE", "value": 4194305},
+            ],
+        }
+    ],
     "builtin_classes": [
         {
             "name": "Vector2",
@@ -70,6 +79,7 @@ def test_generate_all_skips_enum_sync_when_spec_py_missing(
     version_dir = specifications_root / "v9_9_9"
     assert (version_dir / "builtin_classes.py").exists()
     assert (version_dir / "classes.py").exists()
+    assert (version_dir / "global_enums.py").exists()
 
 
 def test_generate_all_produces_working_package(api_json_path, specifications_root):
@@ -91,6 +101,9 @@ def test_generate_all_produces_working_package(api_json_path, specifications_roo
     classes_source = (version_dir / "classes.py").read_text()
     assert "class Nodev9_9_9(Objectv9_9_9):" in classes_source
     assert "position: Vector2v9_9_9" in classes_source
+    enums_source = (version_dir / "global_enums.py").read_text()
+    assert "class Key(IntEnum):" in enums_source
+    assert "KEY_A = 65" in enums_source
 
 
 def test_generate_all_check_mode_reports_stale_then_passes(

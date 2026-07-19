@@ -38,7 +38,7 @@ uv run gli specifications add-version \
 3. If human intervention is needed, stops and writes a report to `schema_diff_vX_Y_Z.yaml`
 4. Creates `specifications/vX_Y_Z/` package
 5. Generates `spec.py` (imports enums from base if identical, otherwise generates fresh)
-6. Runs `sync-enums`, `generate-builtin-classes`, `generate-classes`, `generate-signals`
+6. Runs `sync-enums`, `generate-builtin-classes`, `generate-global-enums`, `generate-classes`, `generate-signals`
 7. Appends the version to `godot-versions.txt`
 8. Outputs test guidance
 
