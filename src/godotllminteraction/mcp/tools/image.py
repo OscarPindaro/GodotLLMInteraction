@@ -52,12 +52,17 @@ def register(server: FastMCP, ctx: McpContext) -> None:
     @server.tool()
     async def tile_region(
         image_path: Annotated[str, Field(description="Path to the tilemap image.")],
-        col: Annotated[int, Field(description="Tile column index (0-based).")],
         row: Annotated[int, Field(description="Tile row index (0-based).")],
+        col: Annotated[int, Field(description="Tile column index (0-based).")],
         tile_width: Annotated[int, Field(description="Tile width in pixels.")] = 16,
         tile_height: Annotated[int, Field(description="Tile height in pixels.")] = 16,
     ) -> str:
-        """Compute the pixel region (Rect2) for a specific tile in a tilemap."""
+        """Compute the pixel region (Rect2) for a specific tile in a tilemap.
+
+        Tile coordinates use (row, column) order: the first index is the row
+        (vertical, y-axis) and the second index is the column (horizontal,
+        x-axis). When a user gives a tile as (a, b), pass row=a and col=b.
+        """
         try:
             result = compute_tile_region(
                 Path(image_path), tile_width, tile_height, col, row

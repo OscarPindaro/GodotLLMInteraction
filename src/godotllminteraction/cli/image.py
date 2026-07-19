@@ -82,8 +82,8 @@ def region(
         Path,
         typer.Argument(help="Path to the tilemap image.", exists=True, readable=True),
     ],
-    col: Annotated[int, typer.Argument(help="Tile column index (0-based).")],
     row: Annotated[int, typer.Argument(help="Tile row index (0-based).")],
+    col: Annotated[int, typer.Argument(help="Tile column index (0-based).")],
     tile_width: Annotated[
         int, typer.Option("--tile-width", "-w", help="Tile width in pixels.")
     ] = 16,
@@ -93,7 +93,10 @@ def region(
 ) -> None:
     """Compute the pixel region (Rect2) for a specific tile in a tilemap.
 
-    Useful for generating AtlasTexture region values in Godot .tscn files.
+    Tile coordinates use (row, column) order: the first positional argument is
+    the row (vertical, y-axis) and the second is the column (horizontal,
+    x-axis). Useful for generating AtlasTexture region values in Godot .tscn
+    files.
     """
     try:
         result = compute_tile_region(image, tile_width, tile_height, col, row)
