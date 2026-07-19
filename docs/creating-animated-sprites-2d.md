@@ -11,10 +11,10 @@ Before writing `.tscn` files by hand, use the project CLI to get the exact numbe
 ```bash
 uv run godotllminteraction info asset/tilemap_packed.png
 uv run godotllminteraction tiles asset/tilemap_packed.png
-uv run godotllminteraction region asset/tilemap_packed.png <row> <col>
+uv run godotllminteraction region asset/tilemap_packed.png <col> <row>
 ```
 
-The `region` command prints the ready-to-paste `Rect2(x, y, width, height)` value for any tile index. Tile coordinates use `(row, column)` order: the first positional argument is the row (vertical, y-axis) and the second is the column (horizontal, x-axis).
+The `region` command prints the ready-to-paste `Rect2(x, y, width, height)` value for any tile index. Tile coordinates use `(col, row)` order, matching the `(x, y)` cartesian convention: the first positional argument is the column (horizontal, x-axis) and the second is the row (vertical, y-axis).
 
 ---
 
