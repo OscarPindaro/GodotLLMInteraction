@@ -21,12 +21,13 @@ def create_server() -> FastMCP:
     server = FastMCP("gli", instructions=_INSTRUCTIONS)
     ctx = McpContext()
 
-    from godotllminteraction.mcp.tools import image, kb, specs, tscn
+    from godotllminteraction.mcp.tools import image, kb, project, specs, tscn
 
     tscn.register(server, ctx)
     image.register(server, ctx)
     specs.register(server, ctx)
     kb.register(server, ctx)
+    project.register(server, ctx)
     return server
 
 
