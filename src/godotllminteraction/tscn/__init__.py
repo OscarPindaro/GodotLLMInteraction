@@ -32,10 +32,12 @@ from godotllminteraction.tscn.godot_check import (
     find_godot,
 )
 from godotllminteraction.tscn.operations import (
+    AddAnimation,
     AddExtResource,
     OpType,
     AddNode,
     AddSpriteImage,
+    AddSpriteFrames,
     ApplyResult,
     AttachScript,
     ConnectSignal,
@@ -89,9 +91,11 @@ def save_scene(scene: Scene, path: Path) -> None:
 
 
 __all__ = [
+    "AddAnimation",
     "AddExtResource",
     "AddNode",
     "AddSpriteImage",
+    "AddSpriteFrames",
     "ApplyResult",
     "AttachScript",
     "ClassInfo",

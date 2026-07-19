@@ -502,6 +502,175 @@ def register(server: FastMCP, ctx: McpContext) -> None:
         )
 
     @server.tool()
+    async def add_sprite_frames(
+        scene_path: Annotated[str, Field(description="Path to the .tscn file.")],
+        id: Annotated[
+            str | None,
+            Field(
+                description="SpriteFrames sub_resource id. Pass a readable id "
+                "('frames_door', 'anim_player') so add_animation can reference it; "
+                "leave unset for a generated id."
+            ),
+        ] = None,
+        node: Annotated[
+            str | None,
+            Field(
+                description="Optional AnimatedSprite2D node path. If provided, "
+                "the node is created (as AnimatedSprite2D) if it doesn't exist, "
+                "and its sprite_frames property is set to SubResource(id). A "
+                "bare name ('Hero') is looked up by name; a path ('Enemy/Sprite') "
+                "is explicit. If the node name matches a script-defined "
+                "class_name, the node is created with the script's base type "
+                "and the script auto-attached."
+            ),
+        ] = None,
+        autoplay: Annotated[
+            str | None,
+            Field(
+                description="If set, also sets the node's autoplay property to "
+                "this animation name (e.g. 'default'). Only applied when 'node' "
+                "is set."
+            ),
+        ] = None,
+        output: Annotated[
+            str | None, Field(description="Output path; defaults to in-place.")
+        ] = None,
+        strict: Annotated[
+            bool, Field(description="Whether spec-validation errors abort.")
+        ] = True,
+    ) -> str:
+        """Create a SpriteFrames sub_resource (container for animations),
+        optionally wiring it to an AnimatedSprite2D node (auto-created if missing)."""
+        op = tscn_lib.AddSpriteFrames(id=id, node=node, autoplay=autoplay)
+
+        pre_ops: list[tscn_lib.Operation] = []
+        resolver: tscn_lib.ClassResolver | None = None
+        if node is not None:
+            node_ref = node.split(".")[0]
+            bare_name = node_ref.split("/")[-1]
+            project = tscn_lib.find_project_path(Path(scene_path))
+            if project is not None:
+                resolver = tscn_lib.ClassResolver(project)
+                scene = tscn_lib.load_scene(Path(scene_path))
+                if "/" in node_ref:
+                    existing = scene.node(node_ref)
+                else:
+                    existing = next(
+                        (n for n in scene.nodes if n.name == node_ref), None
+                    )
+                if existing is None:
+                    info = resolver.resolve(bare_name)
+                    if info is not None:
+                        pre_ops.append(
+                            tscn_lib.AddNode(path=node_ref, type=info.base_type)
+                        )
+                        pre_ops.append(
+                            tscn_lib.AttachScript(
+                                path=node_ref, script_path=info.script_path
+                            )
+                        )
+
+        return _run_ops(
+            scene_path, pre_ops + [op], output, strict=strict, resolver=resolver
+        )
+
+    @server.tool()
+    async def add_animation(
+        scene_path: Annotated[str, Field(description="Path to the .tscn file.")],
+        sprite_frames_id: Annotated[
+            str,
+            Field(
+                description="Sub_resource ID of the target SpriteFrames (must exist)."
+            ),
+        ],
+        name: Annotated[
+            str, Field(description="Animation name, e.g. 'default', 'walk', 'idle'.")
+        ],
+        texture: Annotated[
+            str | None,
+            Field(
+                description="Atlas texture2D path (res://). Required for atlas-cell "
+                "mode; set to None for whole-image mode."
+            ),
+        ] = None,
+        frames: Annotated[
+            list,
+            Field(
+                description="Atlas mode (texture is set): list of [col, row] int "
+                "pairs. Whole-image mode (texture is None): list of res:// path "
+                "strings. One entry per frame, in playback order."
+            ),
+        ] = None,
+        loop: Annotated[bool, Field(description="Whether the animation loops.")] = True,
+        speed: Annotated[float, Field(description="Animation speed in fps.")] = 5.0,
+        durations: Annotated[
+            list[float] | None,
+            Field(
+                description="Per-frame durations (default 1.0 each). Must match "
+                "the length of 'frames' if provided."
+            ),
+        ] = None,
+        tile_width: Annotated[
+            int, Field(description="Tile width in pixels (atlas mode only).")
+        ] = 16,
+        tile_height: Annotated[
+            int, Field(description="Tile height in pixels (atlas mode only).")
+        ] = 16,
+        margin: Annotated[
+            int,
+            Field(description="Pixel offset before the grid starts (atlas mode only)."),
+        ] = 0,
+        spacing: Annotated[
+            int, Field(description="Pixel gap between tiles (atlas mode only).")
+        ] = 0,
+        id_prefix: Annotated[
+            str | None,
+            Field(
+                description="Optional prefix for auto-generated AtlasTexture IDs "
+                "(atlas mode only). If None, uses generated IDs."
+            ),
+        ] = None,
+        auto_create: Annotated[
+            bool,
+            Field(
+                description="If True (default) and sprite_frames_id doesn't "
+                "exist, auto-create the SpriteFrames sub_resource with that "
+                "ID instead of erroring."
+            ),
+        ] = True,
+        output: Annotated[
+            str | None, Field(description="Output path; defaults to in-place.")
+        ] = None,
+        strict: Annotated[
+            bool, Field(description="Whether spec-validation errors abort.")
+        ] = True,
+    ) -> str:
+        """Add a named animation to an existing SpriteFrames sub_resource.
+
+        Atlas mode (texture is set): 'frames' is a list of [col, row] pairs;
+        AtlasTexture sub_resources are auto-created (deduped by atlas+region).
+        Whole-image mode (texture is None): 'frames' is a list of res:// paths;
+        ext_resources are created and referenced directly (no AtlasTexture).
+        If an animation with the same name exists, it is replaced.
+        """
+        op = tscn_lib.AddAnimation(
+            sprite_frames_id=sprite_frames_id,
+            name=name,
+            texture=texture,
+            frames=frames or [],
+            loop=loop,
+            speed=speed,
+            durations=durations,
+            tile_width=tile_width,
+            tile_height=tile_height,
+            margin=margin,
+            spacing=spacing,
+            id_prefix=id_prefix,
+            auto_create=auto_create,
+        )
+        return _run_op(scene_path, op, output, strict=strict)
+
+    @server.tool()
     async def apply_ops_file(
         ops_file_path: Annotated[
             str, Field(description="Path to a YAML operations file.")

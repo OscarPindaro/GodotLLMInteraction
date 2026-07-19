@@ -795,6 +795,227 @@ def add_sprite_image(
     )
 
 
+@app.command("add-sprite-frames")
+def add_sprite_frames(
+    scene_path: Annotated[
+        Path, typer.Argument(help="Scene file to edit.", exists=True, dir_okay=False)
+    ],
+    id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--id",
+            help="SpriteFrames sub_resource id; pass a readable name so "
+            "add-animation can reference it. Leave unset for a generated id.",
+        ),
+    ] = None,
+    node: Annotated[
+        Optional[str],
+        typer.Option(
+            "--node",
+            help="Optional AnimatedSprite2D node path. If provided and "
+            "missing, an AnimatedSprite2D is auto-created and its "
+            "sprite_frames property is wired. A bare name ('Hero') is "
+            "looked up by name; a path ('Enemy/Sprite') is explicit.",
+        ),
+    ] = None,
+    autoplay: Annotated[
+        Optional[str],
+        typer.Option(
+            "--autoplay",
+            help="If set, also sets the node's autoplay property to this "
+            "animation name (e.g. 'default'). Only when --node is set.",
+        ),
+    ] = None,
+    output: Annotated[Optional[Path], _OUTPUT_OPTION] = None,
+    dry_run: Annotated[bool, _DRY_RUN_OPTION] = False,
+    strict: Annotated[bool, _STRICT_OPTION] = True,
+    json_output: Annotated[bool, _JSON_OPTION] = False,
+) -> None:
+    """Create a SpriteFrames sub_resource, optionally wiring an AnimatedSprite2D."""
+    operation = tscn_lib.AddSpriteFrames(id=id, node=node, autoplay=autoplay)
+
+    resolver: tscn_lib.ClassResolver | None = None
+    if node is not None:
+        project = tscn_lib.find_project_path(scene_path)
+        if project is not None:
+            resolver = tscn_lib.ClassResolver(project)
+
+    _run_operations(
+        scene_path,
+        [operation],
+        output=output,
+        dry_run=dry_run,
+        strict=strict,
+        json_output=json_output,
+        resolver=resolver,
+    )
+
+
+@app.command("add-animation")
+def add_animation(
+    scene_path: Annotated[
+        Path, typer.Argument(help="Scene file to edit.", exists=True, dir_okay=False)
+    ],
+    sprite_frames_id: Annotated[
+        str,
+        typer.Argument(help="Sub_resource ID of the target SpriteFrames (must exist)."),
+    ],
+    name: Annotated[
+        str, typer.Argument(help="Animation name, e.g. 'default', 'walk'.")
+    ],
+    texture: Annotated[
+        Optional[str],
+        typer.Option(
+            "--texture",
+            help="Atlas texture path (res://). Required for atlas-cell mode; "
+            "omit for whole-image mode (use --frame instead).",
+        ),
+    ] = None,
+    cells: Annotated[
+        list[str],
+        typer.Option(
+            "--cell",
+            help="Atlas mode: a COL,ROW pair; repeatable (e.g. --cell 0,0 --cell 1,0).",
+        ),
+    ] = [],  # noqa: B006
+    frame_paths: Annotated[
+        list[str],
+        typer.Option(
+            "--frame",
+            help="Whole-image mode: a res:// path to a full-image frame; repeatable.",
+        ),
+    ] = [],  # noqa: B006
+    loop: Annotated[
+        bool,
+        typer.Option(
+            "--loop/--no-loop",
+            help="Whether the animation loops.",
+        ),
+    ] = True,
+    speed: Annotated[
+        float, typer.Option("--speed", help="Animation speed in fps.")
+    ] = 5.0,
+    tile_width: Annotated[
+        int, typer.Option("--tile-width", help="Tile width in pixels (atlas mode).")
+    ] = 16,
+    tile_height: Annotated[
+        int, typer.Option("--tile-height", help="Tile height in pixels (atlas mode).")
+    ] = 16,
+    margin: Annotated[
+        int,
+        typer.Option(
+            "--margin", help="Pixel offset before the grid starts (atlas mode)."
+        ),
+    ] = 0,
+    spacing: Annotated[
+        int, typer.Option("--spacing", help="Pixel gap between tiles (atlas mode).")
+    ] = 0,
+    id_prefix: Annotated[
+        Optional[str],
+        typer.Option(
+            "--id-prefix",
+            help="Optional prefix for auto-generated AtlasTexture IDs (atlas mode).",
+        ),
+    ] = None,
+    durations: Annotated[
+        Optional[str],
+        typer.Option(
+            "--durations",
+            help="Per-frame durations as comma-separated floats, e.g. '1.0,0.5,2.0'.",
+        ),
+    ] = None,
+    auto_create: Annotated[
+        bool,
+        typer.Option(
+            "--auto-create/--no-auto-create",
+            help="If the SpriteFrames sub_resource doesn't exist, auto-create "
+            "it with the given ID (default: on).",
+        ),
+    ] = True,
+    output: Annotated[Optional[Path], _OUTPUT_OPTION] = None,
+    dry_run: Annotated[bool, _DRY_RUN_OPTION] = False,
+    strict: Annotated[bool, _STRICT_OPTION] = True,
+    json_output: Annotated[bool, _JSON_OPTION] = False,
+) -> None:
+    """Add a named animation to an existing SpriteFrames sub_resource."""
+    # Parse frames based on mode.
+    if texture is not None:
+        # Atlas mode: --cell pairs are required.
+        if not cells:
+            print_error("atlas mode requires at least one --cell COL,ROW pair.")
+            raise typer.Exit(code=EXIT_USAGE)
+        if frame_paths:
+            print_error(
+                "cannot mix --cell (atlas mode) and --frame (whole-image mode)."
+            )
+            raise typer.Exit(code=EXIT_USAGE)
+        frames: list = []
+        for cell_str in cells:
+            parts = cell_str.split(",")
+            if len(parts) != 2:
+                print_error(f"--cell expects COL,ROW (e.g. '0,1'); got {cell_str!r}.")
+                raise typer.Exit(code=EXIT_USAGE)
+            try:
+                frames.append([int(parts[0].strip()), int(parts[1].strip())])
+            except ValueError:
+                print_error(f"--cell expects integer COL,ROW; got {cell_str!r}.")
+                raise typer.Exit(code=EXIT_USAGE)
+    else:
+        # Whole-image mode: --frame paths.
+        if not frame_paths:
+            print_error(
+                "either --texture with --cell pairs (atlas mode) or --frame paths "
+                "(whole-image mode) must be provided."
+            )
+            raise typer.Exit(code=EXIT_USAGE)
+        if cells:
+            print_error(
+                "cannot mix --cell (atlas mode) and --frame (whole-image mode)."
+            )
+            raise typer.Exit(code=EXIT_USAGE)
+        frames = list(frame_paths)
+
+    duration_list: list[float] | None = None
+    if durations is not None:
+        try:
+            duration_list = [float(d.strip()) for d in durations.split(",")]
+        except ValueError:
+            print_error(
+                f"Invalid --durations {durations!r}; expected comma-separated floats."
+            )
+            raise typer.Exit(code=EXIT_USAGE)
+        if len(duration_list) != len(frames):
+            print_error(
+                f"durations has {len(duration_list)} entries, frames has "
+                f"{len(frames)}; they must match."
+            )
+            raise typer.Exit(code=EXIT_USAGE)
+
+    operation = tscn_lib.AddAnimation(
+        sprite_frames_id=sprite_frames_id,
+        name=name,
+        texture=texture,
+        frames=frames,
+        loop=loop,
+        speed=speed,
+        durations=duration_list,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        margin=margin,
+        spacing=spacing,
+        id_prefix=id_prefix,
+        auto_create=auto_create,
+    )
+    _run_operations(
+        scene_path,
+        [operation],
+        output=output,
+        dry_run=dry_run,
+        strict=strict,
+        json_output=json_output,
+    )
+
+
 @app.command()
 def tree(
     scene_path: Annotated[

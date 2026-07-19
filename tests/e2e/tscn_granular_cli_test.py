@@ -778,3 +778,335 @@ class TestChaining:
             result = runner.invoke(app, command)
             assert result.exit_code == 0, (command, result.output)
         assert scene.read_text() == (_SCENES / "connections.tscn").read_text()
+
+
+class TestAddSpriteFrames:
+    def test_cli_creates_sprite_frames(self, tmp_path):
+        scene = workspace(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-sprite-frames",
+                str(scene),
+                "--id",
+                "frames_walk",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        text = scene.read_text()
+        assert '[sub_resource type="SpriteFrames" id="frames_walk"]' in text
+        assert "animations = []" in text
+
+    def test_cli_with_node_and_autoplay(self, tmp_path):
+        scene = workspace(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-sprite-frames",
+                str(scene),
+                "--id",
+                "frames_walk",
+                "--node",
+                "Hero",
+                "--autoplay",
+                "default",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        text = scene.read_text()
+        assert 'name="Hero" type="AnimatedSprite2D"' in text
+        assert 'sprite_frames = SubResource("frames_walk")' in text
+        assert 'autoplay = "default"' in text
+
+    def test_cli_json_output(self, tmp_path):
+        scene = workspace(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-sprite-frames",
+                str(scene),
+                "--id",
+                "frames_walk",
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["operations"][0]["op"] == "add_sprite_frames"
+        assert payload["operations"][0]["allocated_ids"]["id"] == "frames_walk"
+
+    def test_cli_dry_run(self, tmp_path):
+        scene = workspace(tmp_path)
+        original = scene.read_text()
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-sprite-frames",
+                str(scene),
+                "--id",
+                "frames_walk",
+                "--dry-run",
+            ],
+        )
+        assert result.exit_code == 0
+        assert scene.read_text() == original
+        assert "Dry run" in result.output
+
+
+class TestAddAnimation:
+    def test_cli_atlas_mode(self, tmp_path):
+        scene = workspace(tmp_path)
+        # First create SpriteFrames
+        r1 = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-sprite-frames",
+                str(scene),
+                "--id",
+                "frames_walk",
+            ],
+        )
+        assert r1.exit_code == 0, r1.output
+        # Then add animation with atlas cells
+        r2 = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--cell",
+                "1,0",
+            ],
+        )
+        assert r2.exit_code == 0, r2.output
+        text = scene.read_text()
+        assert '"name": &"default"' in text
+        assert "AtlasTexture" in text
+        assert "SubResource(" in text
+
+    def test_cli_whole_image_mode(self, tmp_path):
+        scene = workspace(tmp_path)
+        # First create SpriteFrames
+        r1 = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-sprite-frames",
+                str(scene),
+                "--id",
+                "frames_idle",
+            ],
+        )
+        assert r1.exit_code == 0, r1.output
+        # Then add animation with whole-image frames
+        r2 = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_idle",
+                "idle",
+                "--frame",
+                "res://frame0.png",
+                "--frame",
+                "res://frame1.png",
+            ],
+        )
+        assert r2.exit_code == 0, r2.output
+        text = scene.read_text()
+        assert '"name": &"idle"' in text
+        assert "ExtResource(" in text
+        assert "AtlasTexture" not in text
+
+    def test_cli_json_output_atlas(self, tmp_path):
+        scene = workspace(tmp_path)
+        runner.invoke(
+            app,
+            ["tscn", "add-sprite-frames", str(scene), "--id", "frames_walk"],
+        )
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["operations"][0]["op"] == "add_animation"
+        assert payload["operations"][0]["allocated_ids"]["animation_name"] == "default"
+
+    def test_cli_json_output_whole_image(self, tmp_path):
+        scene = workspace(tmp_path)
+        runner.invoke(
+            app,
+            ["tscn", "add-sprite-frames", str(scene), "--id", "frames_idle"],
+        )
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_idle",
+                "idle",
+                "--frame",
+                "res://frame0.png",
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["operations"][0]["op"] == "add_animation"
+
+    def test_cli_dry_run(self, tmp_path):
+        scene = workspace(tmp_path)
+        runner.invoke(
+            app,
+            ["tscn", "add-sprite-frames", str(scene), "--id", "frames_walk"],
+        )
+        original = scene.read_text()
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--dry-run",
+            ],
+        )
+        assert result.exit_code == 0
+        assert scene.read_text() == original
+        assert "Dry run" in result.output
+
+    def test_cli_durations(self, tmp_path):
+        scene = workspace(tmp_path)
+        runner.invoke(
+            app,
+            ["tscn", "add-sprite-frames", str(scene), "--id", "frames_walk"],
+        )
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--cell",
+                "1,0",
+                "--durations",
+                "0.5,2.0",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        text = scene.read_text()
+        assert '"duration": 0.5' in text
+        assert '"duration": 2.0' in text
+
+    def test_cli_no_loop(self, tmp_path):
+        scene = workspace(tmp_path)
+        runner.invoke(
+            app,
+            ["tscn", "add-sprite-frames", str(scene), "--id", "frames_walk"],
+        )
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--no-loop",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert '"loop": 0' in scene.read_text()
+
+    def test_cli_id_prefix(self, tmp_path):
+        scene = workspace(tmp_path)
+        runner.invoke(
+            app,
+            ["tscn", "add-sprite-frames", str(scene), "--id", "frames_walk"],
+        )
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--cell",
+                "1,0",
+                "--id-prefix",
+                "walk",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        text = scene.read_text()
+        assert 'id="walk_0_0"' in text
+        assert 'id="walk_1_0"' in text
+
+    def test_cli_auto_create(self, tmp_path):
+        scene = workspace(tmp_path)
+        # No add-sprite-frames first; auto_create is on by default
+        result = runner.invoke(
+            app,
+            [
+                "tscn",
+                "add-animation",
+                str(scene),
+                "frames_walk",
+                "default",
+                "--texture",
+                "res://tilemap.png",
+                "--cell",
+                "0,0",
+                "--cell",
+                "1,0",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        text = scene.read_text()
+        assert '[sub_resource type="SpriteFrames" id="frames_walk"]' in text
+        assert '"name": &"default"' in text

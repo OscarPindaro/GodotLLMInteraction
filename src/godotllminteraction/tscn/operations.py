@@ -55,6 +55,7 @@ from godotllminteraction.tscn.values import (
     GInt,
     GNodePath,
     GString,
+    GStringName,
     GodotValue,
     ext_resource_ref,
     format_value,
@@ -106,6 +107,8 @@ class OpType(StrEnum):
     CONNECT_SIGNAL = "connect_signal"
     DISCONNECT_SIGNAL = "disconnect_signal"
     ADD_SPRITE_IMAGE = "add_sprite_image"
+    ADD_SPRITE_FRAMES = "add_sprite_frames"
+    ADD_ANIMATION = "add_animation"
 
 
 class AddNode(BaseModel):
@@ -340,6 +343,88 @@ class ConnectSignal(BaseModel):
     )
 
 
+class AddSpriteFrames(BaseModel):
+    """Create a SpriteFrames sub_resource (container for animations).
+
+    Optionally wire it to an AnimatedSprite2D node (auto-created if missing).
+    Animations are added separately with add_animation.
+    """
+
+    op: Literal[OpType.ADD_SPRITE_FRAMES] = OpType.ADD_SPRITE_FRAMES
+    id: str | None = Field(
+        None,
+        description="SpriteFrames sub_resource id. Pass a readable id "
+        "('frames_door', 'anim_player') so add_animation can reference it; "
+        "leave unset for a generated id.",
+    )
+    node: str | None = Field(
+        None,
+        description="Optional AnimatedSprite2D node path. If provided, the "
+        "node is created (as AnimatedSprite2D) if it doesn't exist, and its "
+        "sprite_frames property is set to SubResource(id). A bare name "
+        "('Hero') is looked up by name; a path ('Enemy/Sprite') is explicit.",
+    )
+    autoplay: str | None = Field(
+        None,
+        description="If set, also sets the node's autoplay property to this "
+        "animation name (e.g. 'default'). Only applied when 'node' is set.",
+    )
+
+
+class AddAnimation(BaseModel):
+    """Add a named animation to an existing SpriteFrames sub_resource.
+
+    Two frame modes, detected from 'texture':
+    - **Atlas mode** (texture is set): 'frames' is a list of [col, row] int
+      pairs. The applier auto-creates AtlasTexture sub_resources (deduped by
+      atlas+region) for each cell.
+    - **Whole-image mode** (texture is None): 'frames' is a list of res://
+      path strings. Each is a full-image frame; the applier creates
+      ext_resources and references them directly (no AtlasTexture, no region).
+
+    If an animation with the same name already exists, it is replaced.
+    """
+
+    op: Literal[OpType.ADD_ANIMATION] = OpType.ADD_ANIMATION
+    sprite_frames_id: str = Field(
+        description="Sub_resource ID of the target SpriteFrames (must exist)."
+    )
+    name: str = Field(description="Animation name, e.g. 'default', 'walk', 'idle'.")
+    texture: str | None = Field(
+        None,
+        description="Atlas texture path (res://). Required for atlas-cell "
+        "mode; set to None for whole-image mode.",
+    )
+    frames: list = Field(
+        description="Atlas mode: list of [col, row] int pairs. Whole-image "
+        "mode: list of res:// path strings. One entry per frame, in "
+        "playback order.",
+    )
+    loop: bool = Field(True, description="Whether the animation loops.")
+    speed: float = Field(5.0, description="Animation speed in fps.")
+    durations: list[float] | None = Field(
+        None,
+        description="Per-frame durations (default 1.0 each). Must match the "
+        "length of 'frames' if provided.",
+    )
+    tile_width: int = Field(16, description="Tile width in pixels (atlas mode only).")
+    tile_height: int = Field(16, description="Tile height in pixels (atlas mode only).")
+    margin: int = Field(
+        0, description="Pixel offset before the grid starts (atlas mode only)."
+    )
+    spacing: int = Field(0, description="Pixel gap between tiles (atlas mode only).")
+    id_prefix: str | None = Field(
+        None,
+        description="Optional prefix for auto-generated AtlasTexture IDs "
+        "(atlas mode only). If None, uses generated IDs.",
+    )
+    auto_create: bool = Field(
+        True,
+        description="If True and sprite_frames_id doesn't exist, auto-create "
+        "the SpriteFrames sub_resource with that ID instead of erroring.",
+    )
+
+
 class DisconnectSignal(BaseModel):
     """Remove the [connection] matching (signal, from, to, method)."""
 
@@ -366,6 +451,8 @@ Operation = Annotated[
         ConnectSignal,
         DisconnectSignal,
         AddSpriteImage,
+        AddSpriteFrames,
+        AddAnimation,
     ],
     Field(discriminator="op"),
 ]
@@ -1362,6 +1449,232 @@ def _apply_add_sprite_image(
     )
 
 
+def _apply_add_sprite_frames(
+    scene: Scene,
+    op: AddSpriteFrames,
+    provider: SpecProvider,
+    strict: bool,
+    *,
+    resolver: ClassResolver | None = None,
+) -> OpResult:
+    """Create a SpriteFrames sub_resource, optionally wiring an AnimatedSprite2D."""
+    sub_result = _apply_create_sub_resource(
+        scene,
+        CreateSubResource(
+            type="SpriteFrames",
+            id=op.id,
+            properties={"animations": "[]"},
+        ),
+        provider,
+        strict,
+    )
+    sub_id = sub_result.allocated_ids["id"]
+    changed = sub_result.changed
+    report = sub_result.report
+    affected: list[str] = []
+    allocated: dict[str, str] = {"id": sub_id}
+
+    if op.node is not None:
+        node_ref = op.node.split(".")[0]
+        existing_path = _resolve_node_ref(scene, node_ref)
+        target_path = existing_path if existing_path is not None else node_ref
+        add_result = _apply_add_node(
+            scene, AddNode(path=target_path, type="AnimatedSprite2D"), provider, strict
+        )
+        node_path = (
+            add_result.affected_paths[0] if add_result.affected_paths else target_path
+        )
+        changed = changed or add_result.changed
+        report.merge(add_result.report)
+        affected.append(node_path)
+
+        node = scene.node(node_path)
+        assert node is not None
+        if _set_property_if_changed(node, "sprite_frames", sub_resource_ref(sub_id)):
+            changed = True
+        if op.autoplay is not None:
+            if _set_property_if_changed(node, "autoplay", GString(value=op.autoplay)):
+                changed = True
+
+    _check_strict(report, strict)
+    return OpResult(
+        op=op.op,
+        changed=changed,
+        affected_paths=affected,
+        allocated_ids=allocated,
+        report=report,
+    )
+
+
+def _find_sub_resource(scene: Scene, resource_id: str) -> SubResourceEntry | None:
+    for sub in scene.sub_resources:
+        if sub.id == resource_id:
+            return sub
+    return None
+
+
+def _animation_name_value(value: GodotValue) -> str | None:
+    """Extract the animation name from a GDict 'name' entry, if present."""
+    if not isinstance(value, GDict):
+        return None
+    for key, val in value.entries:
+        if isinstance(key, GString) and key.value == "name":
+            if isinstance(val, GStringName):
+                return val.value
+            if isinstance(val, GString):
+                return val.value
+    return None
+
+
+def _apply_add_animation(
+    scene: Scene,
+    op: AddAnimation,
+    provider: SpecProvider,
+    strict: bool,
+    *,
+    resolver: ClassResolver | None = None,
+) -> OpResult:
+    """Add a named animation to an existing SpriteFrames sub_resource."""
+    report = ValidationReport()
+    changed = False
+    allocated: dict[str, str] = {}
+    frame_ids: list[str] = []
+
+    target = _find_sub_resource(scene, op.sprite_frames_id)
+    if target is None:
+        if op.auto_create:
+            sf_result = _apply_add_sprite_frames(
+                scene,
+                AddSpriteFrames(id=op.sprite_frames_id),
+                provider,
+                strict,
+                resolver=resolver,
+            )
+            changed = sf_result.changed
+            report.merge(sf_result.report)
+            target = _find_sub_resource(scene, op.sprite_frames_id)
+            assert target is not None
+        else:
+            raise OperationError(
+                f"SpriteFrames sub_resource {op.sprite_frames_id!r} not found; "
+                f"set auto_create=True to auto-create it"
+            )
+    elif target.type != "SpriteFrames":
+        raise OperationError(
+            f"sub_resource {op.sprite_frames_id!r} is {target.type!r}, not SpriteFrames"
+        )
+
+    if op.durations is not None and len(op.durations) != len(op.frames):
+        raise OperationError(
+            f"durations has {len(op.durations)} entries, frames has "
+            f"{len(op.frames)}; they must match"
+        )
+
+    # Resolve frame textures based on mode.
+    frame_textures: list[GodotValue] = []
+    if op.texture is not None:
+        # Atlas mode: each frame is a [col, row] pair.
+        for idx, frame_entry in enumerate(op.frames):
+            if not isinstance(frame_entry, (list, tuple)) or len(frame_entry) != 2:
+                raise OperationError(
+                    f"atlas mode: frame {idx} must be a [col, row] pair, "
+                    f"got {frame_entry!r}"
+                )
+            col, row = int(frame_entry[0]), int(frame_entry[1])
+            atlas_id = op.id_prefix + f"_{col}_{row}" if op.id_prefix else None
+            sub_op = AddSpriteImage(
+                texture=op.texture,
+                cell=(col, row),
+                node=None,
+                mode="atlas",
+                id=atlas_id,
+                tile_width=op.tile_width,
+                tile_height=op.tile_height,
+                margin=op.margin,
+                spacing=op.spacing,
+            )
+            sub_result = _apply_add_sprite_image(
+                scene, sub_op, provider, strict, resolver=resolver
+            )
+            changed = changed or sub_result.changed
+            report.merge(sub_result.report)
+            sub_id = sub_result.allocated_ids["sub_resource_id"]
+            frame_ids.append(sub_id)
+            frame_textures.append(sub_resource_ref(sub_id))
+    else:
+        # Whole-image mode: each frame is a res:// path string.
+        for idx, frame_entry in enumerate(op.frames):
+            if not isinstance(frame_entry, str):
+                raise OperationError(
+                    f"whole-image mode: frame {idx} must be a res:// path "
+                    f"string, got {frame_entry!r}"
+                )
+            ext_op = AddExtResource(type="Texture2D", path=frame_entry)
+            ext_result = _apply_add_ext_resource(scene, ext_op, provider, strict)
+            changed = changed or ext_result.changed
+            ext_id = ext_result.allocated_ids["id"]
+            frame_ids.append(ext_id)
+            frame_textures.append(ext_resource_ref(ext_id))
+
+    # Build the animation GDict entry.
+    durations = op.durations if op.durations is not None else [1.0] * len(op.frames)
+    frame_dicts = tuple(
+        GDict(
+            entries=(
+                (GString(value="duration"), GFloat(value=d)),
+                (GString(value="texture"), tex),
+            )
+        )
+        for d, tex in zip(durations, frame_textures, strict=True)
+    )
+    new_anim = GDict(
+        entries=(
+            (GString(value="frames"), GArray(items=frame_dicts)),
+            (GString(value="loop"), GInt(value=1 if op.loop else 0)),
+            (GString(value="name"), GStringName(value=op.name)),
+            (GString(value="speed"), GFloat(value=op.speed)),
+        )
+    )
+
+    # Parse existing animations array, replace or append.
+    current_anims = target.properties.get("animations")
+    if isinstance(current_anims, GArray):
+        items = list(current_anims.items)
+    else:
+        items = []
+
+    replaced = False
+    for i, item in enumerate(items):
+        if _animation_name_value(item) == op.name:
+            if not values_equal(item, new_anim):
+                items[i] = new_anim
+                changed = True
+            else:
+                # Same name, same content — no-op for this animation.
+                pass
+            replaced = True
+            break
+
+    if not replaced:
+        items.append(new_anim)
+        changed = True
+
+    if changed:
+        target.properties["animations"] = GArray(items=tuple(items))
+
+    allocated["frame_ids"] = ",".join(frame_ids)
+    allocated["animation_name"] = op.name
+
+    _check_strict(report, strict)
+    return OpResult(
+        op=op.op,
+        changed=changed,
+        affected_paths=[],
+        allocated_ids=allocated,
+        report=report,
+    )
+
+
 _APPLIERS = {
     "add_node": _apply_add_node,
     "delete_node": _apply_delete_node,
@@ -1375,6 +1688,8 @@ _APPLIERS = {
     "connect_signal": _apply_connect_signal,
     "disconnect_signal": _apply_disconnect_signal,
     "add_sprite_image": _apply_add_sprite_image,
+    "add_sprite_frames": _apply_add_sprite_frames,
+    "add_animation": _apply_add_animation,
 }
 
 

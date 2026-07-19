@@ -6,8 +6,10 @@ import pytest
 
 from godotllminteraction.tscn.exceptions import OperationError
 from godotllminteraction.tscn.operations import (
+    AddAnimation,
     AddExtResource,
     AddNode,
+    AddSpriteFrames,
     AddSpriteImage,
     AttachScript,
     ConnectSignal,
@@ -896,3 +898,310 @@ class TestAddSpriteImage:
         second = apply_operations(first.scene, [op])
         assert dump_scene(second.scene) == dump_scene(first.scene)
         assert all(not r.changed for r in second.results)
+
+
+class TestAddSpriteFrames:
+    TEXTURE = "res://tests/data/assets/atlas.png"
+
+    def test_creates_sprite_frames_with_empty_animations(self):
+        result = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        text = dump_scene(result.scene)
+        assert '[sub_resource type="SpriteFrames" id="frames_walk"]' in text
+        assert "animations = []" in text
+        assert result.results[0].changed
+
+    def test_with_node_auto_creates_animated_sprite_2d(self):
+        result = apply_operations(
+            basic(),
+            [AddSpriteFrames(id="frames_walk", node="Hero")],
+        )
+        node = result.scene.node("Hero")
+        assert node is not None
+        assert node.type == "AnimatedSprite2D"
+        text = dump_scene(result.scene)
+        assert 'sprite_frames = SubResource("frames_walk")' in text
+
+    def test_with_autoplay_sets_autoplay(self):
+        result = apply_operations(
+            basic(),
+            [AddSpriteFrames(id="frames_walk", node="Hero", autoplay="default")],
+        )
+        node = result.scene.node("Hero")
+        assert node is not None
+        text = dump_scene(result.scene)
+        assert 'autoplay = "default"' in text
+
+    def test_autoplay_without_node_ignored(self):
+        result = apply_operations(
+            basic(),
+            [AddSpriteFrames(id="frames_walk", autoplay="default")],
+        )
+        text = dump_scene(result.scene)
+        assert "autoplay" not in text
+
+    def test_idempotent(self):
+        op = AddSpriteFrames(id="frames_walk", node="Hero")
+        first = apply_operations(basic(), [op])
+        second = apply_operations(first.scene, [op])
+        assert dump_scene(second.scene) == dump_scene(first.scene)
+        assert all(not r.changed for r in second.results)
+
+    def test_existing_node_wires_sprite_frames(self):
+        scene = basic()
+        prepared = apply_operations(
+            scene, [AddNode(path="Hero", type="AnimatedSprite2D")]
+        )
+        result = apply_operations(
+            prepared.scene, [AddSpriteFrames(id="frames_walk", node="Hero")]
+        )
+        node = result.scene.node("Hero")
+        assert node is not None
+        text = dump_scene(result.scene)
+        assert 'sprite_frames = SubResource("frames_walk")' in text
+
+
+class TestAddAnimation:
+    TEXTURE = "res://tests/data/assets/atlas.png"
+
+    def test_atlas_mode_adds_animation(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0], [1, 0]],
+                )
+            ],
+        )
+        text = dump_scene(result.scene)
+        assert '"name": &"default"' in text
+        assert "SubResource(" in text
+        assert "AtlasTexture" in text
+        assert '"speed": 5.0' in text
+        assert '"loop": 1' in text
+
+    def test_atlas_mode_creates_atlas_textures(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0], [1, 0]],
+                )
+            ],
+        )
+        atlas_subs = [s for s in result.scene.sub_resources if s.type == "AtlasTexture"]
+        assert len(atlas_subs) == 2
+
+    def test_atlas_mode_dedup_reuses_atlas_texture(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0], [0, 0]],
+                )
+            ],
+        )
+        atlas_subs = [s for s in result.scene.sub_resources if s.type == "AtlasTexture"]
+        assert len(atlas_subs) == 1
+
+    def test_atlas_mode_with_id_prefix(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0], [1, 0]],
+                    id_prefix="walk",
+                )
+            ],
+        )
+        text = dump_scene(result.scene)
+        assert 'id="walk_0_0"' in text
+        assert 'id="walk_1_0"' in text
+
+    def test_whole_image_mode_adds_animation(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="idle",
+                    texture=None,
+                    frames=["res://frame0.png", "res://frame1.png"],
+                )
+            ],
+        )
+        text = dump_scene(result.scene)
+        assert '"name": &"idle"' in text
+        assert "ExtResource(" in text
+        # No AtlasTexture in whole-image mode
+        assert "AtlasTexture" not in text
+
+    def test_whole_image_mode_creates_ext_resources(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="idle",
+                    texture=None,
+                    frames=["res://frame0.png", "res://frame1.png"],
+                )
+            ],
+        )
+        ext_paths = {e.path for e in result.scene.ext_resources}
+        assert "res://frame0.png" in ext_paths
+        assert "res://frame1.png" in ext_paths
+
+    def test_replaces_animation_with_same_name(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        first = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0]],
+                )
+            ],
+        )
+        second = apply_operations(
+            first.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[1, 0]],
+                )
+            ],
+        )
+        text = dump_scene(second.scene)
+        # Should have only one animation named "default"
+        assert text.count('&"default"') == 1
+
+    def test_durations_mismatch_errors(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        with pytest.raises(OperationError, match="durations has"):
+            apply_operations(
+                prepared.scene,
+                [
+                    AddAnimation(
+                        sprite_frames_id="frames_walk",
+                        name="default",
+                        texture=self.TEXTURE,
+                        frames=[[0, 0], [1, 0]],
+                        durations=[1.0],
+                    )
+                ],
+            )
+
+    def test_missing_sprite_frames_id_errors(self):
+        with pytest.raises(OperationError, match="not found"):
+            apply_operations(
+                basic(),
+                [
+                    AddAnimation(
+                        sprite_frames_id="nonexistent",
+                        name="default",
+                        texture=self.TEXTURE,
+                        frames=[[0, 0]],
+                        auto_create=False,
+                    )
+                ],
+            )
+
+    def test_auto_create_creates_sprite_frames(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0]],
+                    auto_create=True,
+                )
+            ],
+        )
+        text = dump_scene(result.scene)
+        assert '[sub_resource type="SpriteFrames" id="frames_walk"]' in text
+        assert '"name": &"default"' in text
+
+    def test_auto_create_idempotent(self):
+        op = AddAnimation(
+            sprite_frames_id="frames_walk",
+            name="default",
+            texture=self.TEXTURE,
+            frames=[[0, 0], [1, 0]],
+            auto_create=True,
+        )
+        first = apply_operations(basic(), [op])
+        second = apply_operations(first.scene, [op])
+        assert dump_scene(second.scene) == dump_scene(first.scene)
+        assert all(not r.changed for r in second.results)
+
+    def test_idempotent_same_animation(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        op = AddAnimation(
+            sprite_frames_id="frames_walk",
+            name="default",
+            texture=self.TEXTURE,
+            frames=[[0, 0], [1, 0]],
+        )
+        first = apply_operations(prepared.scene, [op])
+        second = apply_operations(first.scene, [op])
+        assert dump_scene(second.scene) == dump_scene(first.scene)
+        assert all(not r.changed for r in second.results)
+
+    def test_durations_applied(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0], [1, 0]],
+                    durations=[0.5, 2.0],
+                )
+            ],
+        )
+        text = dump_scene(result.scene)
+        assert '"duration": 0.5' in text
+        assert '"duration": 2.0' in text
+
+    def test_no_loop(self):
+        prepared = apply_operations(basic(), [AddSpriteFrames(id="frames_walk")])
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddAnimation(
+                    sprite_frames_id="frames_walk",
+                    name="default",
+                    texture=self.TEXTURE,
+                    frames=[[0, 0]],
+                    loop=False,
+                )
+            ],
+        )
+        text = dump_scene(result.scene)
+        assert '"loop": 0' in text
