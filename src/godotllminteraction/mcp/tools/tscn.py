@@ -11,7 +11,11 @@ from pydantic import Field
 
 from godotllminteraction import tscn as tscn_lib
 from godotllminteraction.mcp.context import McpContext
-from godotllminteraction.tscn.exceptions import OperationError, TscnError
+from godotllminteraction.tscn.exceptions import (
+    OperationError,
+    SceneValidationError,
+    TscnError,
+)
 from godotllminteraction.tscn.godot_check import GodotNotFoundError
 
 
@@ -49,6 +53,17 @@ def _run_op(
     *,
     strict: bool = True,
 ) -> str:
+    return _run_ops(scene_path, [operation], output, strict=strict)
+
+
+def _run_ops(
+    scene_path: str,
+    operations: list[tscn_lib.Operation],
+    output: str | None,
+    *,
+    strict: bool = True,
+    resolver: tscn_lib.ClassResolver | None = None,
+) -> str:
     p = Path(scene_path)
     if not p.exists():
         return _error_json(f"Scene file not found: {scene_path}")
@@ -57,8 +72,10 @@ def _run_op(
     except TscnError as exc:
         return _error_json(str(exc))
     try:
-        result = tscn_lib.apply_operations(scene, [operation], strict=strict)
-    except OperationError as exc:
+        result = tscn_lib.apply_operations(
+            scene, operations, strict=strict, resolver=resolver
+        )
+    except (OperationError, SceneValidationError) as exc:
         return _error_json(str(exc))
     out = Path(output) if output else p
     return _apply_result_json(result, out)
@@ -73,7 +90,13 @@ def register(server: FastMCP, ctx: McpContext) -> None:
             str, Field(description="Scene path of the new node, e.g. 'Player/Sprite'.")
         ],
         type: Annotated[
-            str | None, Field(description="Godot class name, e.g. 'Sprite2D'.")
+            str | None,
+            Field(
+                description="Godot class name, e.g. 'Sprite2D'. If the name "
+                "is a script-defined class_name found in the project, the "
+                "node is created with the script's base type and the script "
+                "is auto-attached."
+            ),
         ] = None,
         instance: Annotated[
             str | None,
@@ -96,16 +119,34 @@ def register(server: FastMCP, ctx: McpContext) -> None:
             bool, Field(description="Whether spec-validation errors abort.")
         ] = True,
     ) -> str:
-        """Add a node to a Godot scene."""
-        op = tscn_lib.AddNode(
-            path=path,
-            type=type,
-            instance=instance,
-            properties=properties or {},
-            groups=groups,
-            index=index,
-        )
-        return _run_op(scene_path, op, output, strict=strict)
+        """Add a node to a Godot scene. Script-defined class_name types are
+        automatically resolved to (base_type, script)."""
+        effective_type = type
+        script_to_attach: str | None = None
+        if type is not None and instance is None:
+            provider = tscn_lib.default_provider()
+            if provider.resolve_class(type) is None:
+                project = tscn_lib.find_project_path(Path(scene_path))
+                if project is not None:
+                    resolver = tscn_lib.ClassResolver(project)
+                    info = resolver.resolve(type)
+                    if info is not None:
+                        effective_type = info.base_type
+                        script_to_attach = info.script_path
+
+        ops: list[tscn_lib.Operation] = [
+            tscn_lib.AddNode(
+                path=path,
+                type=effective_type,
+                instance=instance,
+                properties=properties or {},
+                groups=groups,
+                index=index,
+            )
+        ]
+        if script_to_attach is not None:
+            ops.append(tscn_lib.AttachScript(path=path, script_path=script_to_attach))
+        return _run_ops(scene_path, ops, output, strict=strict)
 
     @server.tool()
     async def delete_node(
@@ -327,6 +368,138 @@ def register(server: FastMCP, ctx: McpContext) -> None:
             **{"from": from_node, "to": to, "signal": signal, "method": method},
         )
         return _run_op(scene_path, op, output, strict=strict)
+
+    @server.tool()
+    async def add_sprite_image(
+        scene_path: Annotated[str, Field(description="Path to the .tscn file.")],
+        texture: Annotated[
+            str,
+            Field(
+                description="res:// path to a Texture2D resource (PNG, SVG, "
+                "CompressedTexture2D, or a custom .tres texture). For custom "
+                "types, also pass texture_type."
+            ),
+        ],
+        cell: Annotated[
+            tuple[int, int],
+            Field(description="(col, row) grid coordinate of the tile, 0-based."),
+        ],
+        node: Annotated[
+            str | None,
+            Field(
+                description="Target node. None (default): create/reuse the "
+                "resource only, no node wiring or creation (used to "
+                "pre-create AtlasTexture frames for add_animation). A bare "
+                "name with no '/' ('Sprite2D') is looked up by name anywhere "
+                "in the tree (error if ambiguous); a path ('Chest/Sprite2D') "
+                "is explicit. Missing nodes are auto-created as Sprite2D "
+                "(parent must already exist for path references). Append "
+                "'.property' to wire something other than 'texture', e.g. "
+                "'Chest.closed_texture' — atlas mode only. If the node name "
+                "matches a script-defined class_name, the node is created "
+                "with the script's base type and the script auto-attached."
+            ),
+        ] = None,
+        mode: Annotated[
+            str,
+            Field(
+                description="'region' (default): sets region_enabled + "
+                "region_rect directly on the node's own texture; no extra "
+                "resource; not shareable across sprites. 'atlas': "
+                "creates/reuses an AtlasTexture sub_resource (deduped by "
+                "atlas+region); shareable, and required for animation frames. "
+                "'full': sets the whole texture directly on the node, no "
+                "region (for non-atlas textures)."
+            ),
+        ] = "region",
+        id: Annotated[
+            str | None,
+            Field(
+                description="AtlasTexture sub_resource id (atlas mode only; "
+                "ignored in region/full mode). Pass a readable id ('knight', "
+                "'door_open') so repeated calls with the same cell cleanly "
+                "dedupe to the same resource; leave unset for a generated id."
+            ),
+        ] = None,
+        tile_width: Annotated[int, Field(description="Tile width in pixels.")] = 16,
+        tile_height: Annotated[int, Field(description="Tile height in pixels.")] = 16,
+        margin: Annotated[
+            int, Field(description="Pixel offset before the grid starts.")
+        ] = 0,
+        spacing: Annotated[int, Field(description="Pixel gap between tiles.")] = 0,
+        texture_filter: Annotated[
+            int | str | None,
+            Field(
+                description="0=nearest, 1=linear, 2=nearest_with_mipmaps, "
+                "3=linear_with_mipmaps, 4=nearest_with_mipmaps_anisotropic, "
+                "5=linear_with_mipmaps_anisotropic. Accepts the int or the "
+                "name (case-insensitive). If omitted (default), texture_filter "
+                "is not set (uses project default). Only applied when 'node' "
+                "is set."
+            ),
+        ] = None,
+        texture_type: Annotated[
+            str,
+            Field(
+                description="ext_resource type for the texture; override "
+                "for custom .tres texture classes (defaults to 'Texture2D')."
+            ),
+        ] = "Texture2D",
+        output: Annotated[
+            str | None, Field(description="Output path; defaults to in-place.")
+        ] = None,
+        strict: Annotated[
+            bool, Field(description="Whether spec-validation errors abort.")
+        ] = True,
+    ) -> str:
+        """Set up a sprite from a texture atlas cell (region_rect, AtlasTexture, or full texture), optionally wiring/auto-creating a node."""
+        op = tscn_lib.AddSpriteImage(
+            texture=texture,
+            cell=cell,
+            node=node,
+            mode=mode,
+            id=id,
+            tile_width=tile_width,
+            tile_height=tile_height,
+            margin=margin,
+            spacing=spacing,
+            texture_filter=texture_filter,
+            texture_type=texture_type,
+        )
+
+        # If the node will be auto-created and its name matches a script-defined
+        # class_name, pre-create it with the script attached so custom properties
+        # pass validation.
+        pre_ops: list[tscn_lib.Operation] = []
+        resolver: tscn_lib.ClassResolver | None = None
+        if node is not None:
+            node_ref = node.split(".")[0]
+            bare_name = node_ref.split("/")[-1]
+            project = tscn_lib.find_project_path(Path(scene_path))
+            if project is not None:
+                resolver = tscn_lib.ClassResolver(project)
+                scene = tscn_lib.load_scene(Path(scene_path))
+                if "/" in node_ref:
+                    existing = scene.node(node_ref)
+                else:
+                    existing = next(
+                        (n for n in scene.nodes if n.name == node_ref), None
+                    )
+                if existing is None:
+                    info = resolver.resolve(bare_name)
+                    if info is not None:
+                        pre_ops.append(
+                            tscn_lib.AddNode(path=node_ref, type=info.base_type)
+                        )
+                        pre_ops.append(
+                            tscn_lib.AttachScript(
+                                path=node_ref, script_path=info.script_path
+                            )
+                        )
+
+        return _run_ops(
+            scene_path, pre_ops + [op], output, strict=strict, resolver=resolver
+        )
 
     @server.tool()
     async def apply_ops_file(

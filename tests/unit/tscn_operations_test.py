@@ -8,6 +8,7 @@ from godotllminteraction.tscn.exceptions import OperationError
 from godotllminteraction.tscn.operations import (
     AddExtResource,
     AddNode,
+    AddSpriteImage,
     AttachScript,
     ConnectSignal,
     CreateSubResource,
@@ -602,3 +603,296 @@ class TestInvariants:
         )
         detached = apply_operations(attached.scene, [DetachScript(path="Button")])
         assert dump_scene(detached.scene) == original
+
+    def test_add_sprite_image_then_delete_removes_node_and_sub_resource(self):
+        # delete_node GCs sub_resources orphaned by the deletion, but never
+        # touches ext_resources (same contract as every other op) — so the
+        # texture ext_resource is expected to remain afterwards.
+        added = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture="res://tests/data/assets/atlas.png",
+                    cell=(1, 8),
+                    node="Knight",
+                    mode="atlas",
+                )
+            ],
+        )
+        assert len(added.scene.sub_resources) == 1
+        deleted = apply_operations(added.scene, [DeleteNode(path="Knight")])
+        assert deleted.scene.node("Knight") is None
+        assert deleted.scene.sub_resources == []
+        assert len(deleted.scene.ext_resources) == 1
+
+
+class TestAddSpriteImage:
+    TEXTURE = "res://tests/data/assets/atlas.png"
+
+    def test_region_mode_sets_region_rect_and_texture(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE, cell=(1, 8), node="Knight", texture_filter=0
+                )
+            ],
+        )
+        node = result.scene.node("Knight")
+        assert node is not None
+        assert node.type == "Sprite2D"
+        text = dump_scene(result.scene)
+        assert "region_enabled = true" in text
+        assert "region_rect = Rect2(16, 128, 16, 16)" in text
+        assert "texture_filter = 0" in text
+        assert "sub_resource" not in text
+
+    def test_atlas_mode_creates_sub_resource_and_wires(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE, cell=(1, 8), node="Knight", mode="atlas"
+                )
+            ],
+        )
+        node = result.scene.node("Knight")
+        assert node is not None
+        assert len(result.scene.sub_resources) == 1
+        sub = result.scene.sub_resources[0]
+        assert sub.type == "AtlasTexture"
+        text = dump_scene(result.scene)
+        assert f'texture = SubResource("{sub.id}")' in text
+        assert "region = Rect2(16, 128, 16, 16)" in text
+
+    def test_node_none_creates_resource_only(self):
+        scene = basic()
+        before_nodes = len(scene.nodes)
+        result = apply_operations(
+            scene,
+            [AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), mode="atlas")],
+        )
+        assert len(result.scene.nodes) == before_nodes
+        assert len(result.scene.sub_resources) == 1
+
+    def test_auto_create_sprite2d_if_missing(self):
+        result = apply_operations(
+            basic(),
+            [AddSpriteImage(texture=self.TEXTURE, cell=(0, 0), node="Knight")],
+        )
+        node = result.scene.node("Knight")
+        assert node is not None
+        assert node.type == "Sprite2D"
+        assert node.parent == "."
+
+    def test_auto_create_sets_texture_filter_nearest(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE, cell=(0, 0), node="Knight", texture_filter=0
+                )
+            ],
+        )
+        assert "texture_filter = 0" in dump_scene(result.scene)
+
+    def test_texture_filter_string_mapped(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE,
+                    cell=(0, 0),
+                    node="Knight",
+                    texture_filter="linear",
+                )
+            ],
+        )
+        assert "texture_filter = 1" in dump_scene(result.scene)
+
+    def test_texture_filter_int_passthrough(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE, cell=(0, 0), node="Knight", texture_filter=2
+                )
+            ],
+        )
+        assert "texture_filter = 2" in dump_scene(result.scene)
+
+    def test_texture_filter_unknown_string_errors(self):
+        with pytest.raises(OperationError, match="unknown texture_filter"):
+            apply_operations(
+                basic(),
+                [
+                    AddSpriteImage(
+                        texture=self.TEXTURE,
+                        cell=(0, 0),
+                        node="Knight",
+                        texture_filter="bogus",
+                    )
+                ],
+            )
+
+    def test_dedup_reuses_existing_atlas_texture(self):
+        op = AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), mode="atlas")
+        first = apply_operations(basic(), [op])
+        rid = first.results[0].allocated_ids["sub_resource_id"]
+        again = apply_operations(first.scene, [op])
+        assert not again.results[0].changed
+        assert again.results[0].allocated_ids["sub_resource_id"] == rid
+        assert len(again.scene.sub_resources) == 1
+
+    def test_dedup_different_region_creates_new(self):
+        scene = basic()
+        result = apply_operations(
+            scene,
+            [
+                AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), mode="atlas"),
+                AddSpriteImage(texture=self.TEXTURE, cell=(2, 8), mode="atlas"),
+            ],
+        )
+        assert len(result.scene.sub_resources) == 2
+
+    def test_dedup_with_readable_id(self):
+        first = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE, cell=(1, 8), mode="atlas", id="knight"
+                )
+            ],
+        )
+        again = apply_operations(
+            first.scene,
+            [AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), mode="atlas")],
+        )
+        assert not again.results[0].changed
+        assert again.results[0].allocated_ids["sub_resource_id"] == "knight"
+
+    def test_ext_resource_dedup_by_path(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), node="A"),
+                AddSpriteImage(texture=self.TEXTURE, cell=(2, 8), node="B"),
+            ],
+        )
+        assert len(result.scene.ext_resources) == 1
+
+    def test_custom_texture_type(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture="res://custom/my_texture.tres",
+                    cell=(0, 0),
+                    mode="atlas",
+                    texture_type="MyCustomTexture",
+                )
+            ],
+        )
+        assert result.scene.ext_resources[0].type == "MyCustomTexture"
+
+    def test_node_property_encoding(self):
+        scene = basic()
+        # Create a Chest node and attach a script so the custom property
+        # 'closed_texture' is accepted as script-exported.
+        prepared = apply_operations(
+            scene,
+            [
+                AddNode(path="Chest", type="Sprite2D"),
+                AttachScript(path="Chest", script_path="res://chest.gd"),
+            ],
+        )
+        result = apply_operations(
+            prepared.scene,
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE,
+                    cell=(1, 8),
+                    node="Chest.closed_texture",
+                    mode="atlas",
+                )
+            ],
+        )
+        node = result.scene.node("Chest")
+        assert node is not None
+        sub_id = result.scene.sub_resources[0].id
+        assert node.properties["closed_texture"].args[0].value == sub_id
+
+    def test_smart_node_lookup_by_name_unique(self):
+        result = apply_operations(
+            basic(),
+            [AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), node="Sprite")],
+        )
+        node = result.scene.node("Player/Sprite")
+        assert node is not None
+        assert "texture" in node.properties
+
+    def test_smart_node_lookup_ambiguous_errors(self):
+        scene = basic()
+        prepared = apply_operations(
+            scene,
+            [
+                AddNode(path="Other", type="Node2D"),
+                AddNode(path="Other/Sprite", type="Sprite2D"),
+            ],
+        )
+        with pytest.raises(OperationError, match="ambiguous"):
+            apply_operations(
+                prepared.scene,
+                [AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), node="Sprite")],
+            )
+
+    def test_region_mode_requires_node(self):
+        with pytest.raises(OperationError, match="requires 'node'"):
+            apply_operations(
+                basic(),
+                [AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), node=None)],
+            )
+
+    def test_region_mode_property_encoding_errors(self):
+        with pytest.raises(OperationError, match="only supports the built-in"):
+            apply_operations(
+                basic(),
+                [
+                    AddSpriteImage(
+                        texture=self.TEXTURE,
+                        cell=(1, 8),
+                        node="Knight.other_texture",
+                    )
+                ],
+            )
+
+    def test_margin_and_spacing_in_region(self):
+        result = apply_operations(
+            basic(),
+            [
+                AddSpriteImage(
+                    texture=self.TEXTURE,
+                    cell=(1, 1),
+                    node="Knight",
+                    margin=2,
+                    spacing=1,
+                )
+            ],
+        )
+        assert "region_rect = Rect2(19, 19, 16, 16)" in dump_scene(result.scene)
+
+    def test_apply_twice_byte_identical_region_mode(self):
+        op = AddSpriteImage(texture=self.TEXTURE, cell=(1, 8), node="Knight")
+        first = apply_operations(basic(), [op])
+        second = apply_operations(first.scene, [op])
+        assert dump_scene(second.scene) == dump_scene(first.scene)
+        assert all(not r.changed for r in second.results)
+
+    def test_apply_twice_byte_identical_atlas_mode(self):
+        op = AddSpriteImage(
+            texture=self.TEXTURE, cell=(1, 8), node="Knight", mode="atlas"
+        )
+        first = apply_operations(basic(), [op])
+        second = apply_operations(first.scene, [op])
+        assert dump_scene(second.scene) == dump_scene(first.scene)
+        assert all(not r.changed for r in second.results)

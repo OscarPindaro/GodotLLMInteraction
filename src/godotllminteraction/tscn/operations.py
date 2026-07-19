@@ -29,7 +29,8 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from godotllminteraction.tscn.exceptions import OperationError
+from godotllminteraction.tscn.class_cache import ClassResolver
+from godotllminteraction.tscn.exceptions import OperationError, SceneValidationError
 from godotllminteraction.tscn.paths import ScenePath
 from godotllminteraction.tscn.scene import (
     ConnectionEntry,
@@ -57,7 +58,10 @@ from godotllminteraction.tscn.values import (
     GodotValue,
     ext_resource_ref,
     format_value,
+    is_ext_resource_ref,
     parse_value,
+    resource_ref_id,
+    sub_resource_ref,
     values_equal,
 )
 
@@ -101,6 +105,7 @@ class OpType(StrEnum):
     CREATE_SUB_RESOURCE = "create_sub_resource"
     CONNECT_SIGNAL = "connect_signal"
     DISCONNECT_SIGNAL = "disconnect_signal"
+    ADD_SPRITE_IMAGE = "add_sprite_image"
 
 
 class AddNode(BaseModel):
@@ -240,6 +245,71 @@ class CreateSubResource(BaseModel):
     )
 
 
+class AddSpriteImage(BaseModel):
+    """Set up a sprite from a texture atlas cell (region_rect or AtlasTexture).
+
+    Two modes:
+    - 'region' (default): sets region_enabled=true and region_rect on the
+      node's own 'texture'. No extra resource; cannot be shared across
+      sprites. Requires 'node'.
+    - 'atlas': creates (or reuses, by content) an AtlasTexture sub_resource
+      and assigns it to the target property. Shareable across sprites;
+      works with 'node=None' to just create the resource (e.g. as an
+      animation frame for add_animation).
+    """
+
+    op: Literal[OpType.ADD_SPRITE_IMAGE] = OpType.ADD_SPRITE_IMAGE
+    texture: str = Field(
+        description="res:// path to a Texture2D resource (PNG, SVG, "
+        "CompressedTexture2D, or a custom .tres texture). For custom types, "
+        "also pass texture_type."
+    )
+    cell: tuple[int, int] = Field(
+        description="(col, row) grid coordinate of the tile, 0-based."
+    )
+    node: str | None = Field(
+        None,
+        description="Target node. None (default): create/reuse the resource "
+        "only, no node wiring or creation (used to pre-create AtlasTexture "
+        "frames for add_animation). A bare name with no '/' ('Sprite2D') is "
+        "looked up by name anywhere in the tree (error if ambiguous); a path "
+        "('Chest/Sprite2D') is explicit. If the node doesn't exist yet, a "
+        "Sprite2D is auto-created (parent must already exist for path "
+        "references). Append '.property' to wire something other than "
+        "'texture', e.g. 'Chest.closed_texture' — atlas mode only.",
+    )
+    mode: str = Field(
+        "region",
+        description="'region' (default, sets region_enabled/region_rect "
+        "directly on the node, no extra resource, not shareable) or 'atlas' "
+        "(creates/reuses an AtlasTexture sub_resource, shareable).",
+    )
+    id: str | None = Field(
+        None,
+        description="AtlasTexture sub_resource id (atlas mode only; ignored "
+        "in region mode). Pass a readable id ('knight', 'door_open') so "
+        "repeated calls with the same atlas+region cleanly dedupe to the "
+        "same resource; leave unset for a generated id.",
+    )
+    tile_width: int = Field(16, description="Tile width in pixels.")
+    tile_height: int = Field(16, description="Tile height in pixels.")
+    margin: int = Field(0, description="Pixel offset before the grid starts.")
+    spacing: int = Field(0, description="Pixel gap between tiles.")
+    texture_filter: int | str | None = Field(
+        None,
+        description="0=nearest, 1=linear, 2=nearest_with_mipmaps, "
+        "3=linear_with_mipmaps, 4=nearest_with_mipmaps_anisotropic, "
+        "5=linear_with_mipmaps_anisotropic. Accepts the int or the name "
+        "(case-insensitive). If omitted, texture_filter is not set "
+        "(uses project default). Only applied when 'node' is set.",
+    )
+    texture_type: str = Field(
+        "Texture2D",
+        description="ext_resource type for the texture; override for "
+        "custom .tres texture classes (defaults to 'Texture2D').",
+    )
+
+
 class ConnectSignal(BaseModel):
     """Add a [connection] wiring a signal to a method on another node.
 
@@ -295,6 +365,7 @@ Operation = Annotated[
         CreateSubResource,
         ConnectSignal,
         DisconnectSignal,
+        AddSpriteImage,
     ],
     Field(discriminator="op"),
 ]
@@ -1054,6 +1125,243 @@ def _apply_disconnect_signal(
     return OpResult(op=op.op, changed=changed, affected_paths=[key[1]])
 
 
+_TEXTURE_FILTER_NAMES = {
+    "nearest": 0,
+    "linear": 1,
+    "nearest_with_mipmaps": 2,
+    "linear_with_mipmaps": 3,
+    "nearest_with_mipmaps_anisotropic": 4,
+    "linear_with_mipmaps_anisotropic": 5,
+}
+
+
+def _resolve_texture_filter(value: int | str) -> int:
+    """CanvasItem.TextureFilter accepts either the raw int or a readable name."""
+    if isinstance(value, str):
+        key = value.strip().lower()
+        if key not in _TEXTURE_FILTER_NAMES:
+            raise OperationError(
+                f"unknown texture_filter {value!r}; expected an int or one of "
+                f"{sorted(_TEXTURE_FILTER_NAMES)}"
+            )
+        return _TEXTURE_FILTER_NAMES[key]
+    return value
+
+
+def _tile_region(
+    cell: tuple[int, int],
+    tile_width: int,
+    tile_height: int,
+    margin: int,
+    spacing: int,
+) -> tuple[int, int, int, int]:
+    col, row = cell
+    x = col * (tile_width + spacing) + margin
+    y = row * (tile_height + spacing) + margin
+    return x, y, tile_width, tile_height
+
+
+def _split_node_property(node: str) -> tuple[str, str]:
+    """'Chest.closed_texture' -> ('Chest', 'closed_texture'); no '.' -> ('node', 'texture')."""
+    if "." in node:
+        node_ref, prop = node.split(".", 1)
+        if not node_ref or not prop:
+            raise OperationError(
+                f"invalid node reference {node!r}: expected 'NodeName' or "
+                "'NodeName.property'"
+            )
+        return node_ref, prop
+    return node, "texture"
+
+
+def _resolve_node_ref(scene: Scene, node_ref: str) -> str | None:
+    """The existing node path matching `node_ref`, or None if it doesn't exist yet.
+
+    An explicit path (contains '/', or is '.') is looked up directly. A bare
+    name is searched for anywhere in the tree; more than one match is
+    ambiguous and always an error (independent of strict mode)."""
+    if "/" in node_ref or node_ref == ".":
+        path = normalize_path(node_ref)
+        return path if scene.node(path) is not None else None
+    matches = [n for n in scene.nodes if n.name == node_ref]
+    if len(matches) > 1:
+        raise OperationError(
+            f"node name {node_ref!r} is ambiguous ({len(matches)} nodes "
+            "match); use an explicit scene path instead"
+        )
+    return matches[0].path() if matches else None
+
+
+def _set_property_if_changed(node: NodeEntry, key: str, value: GodotValue) -> bool:
+    current = node.properties.get(key)
+    if current is not None and values_equal(current, value):
+        return False
+    node.properties[key] = value
+    return True
+
+
+def _apply_add_sprite_image(
+    scene: Scene,
+    op: AddSpriteImage,
+    provider: SpecProvider,
+    strict: bool,
+    *,
+    resolver: ClassResolver | None = None,
+) -> OpResult:
+    if op.mode not in ("region", "atlas", "full"):
+        raise OperationError(
+            f"add_sprite_image mode must be 'region', 'atlas', or 'full', got {op.mode!r}"
+        )
+    if op.mode in ("region", "full") and op.node is None:
+        raise OperationError(
+            f"add_sprite_image: mode={op.mode!r} requires 'node' (the texture "
+            "is set directly on the node); use mode='atlas' with node=None to "
+            "only create a resource"
+        )
+
+    filter_int = (
+        _resolve_texture_filter(op.texture_filter)
+        if op.texture_filter is not None
+        else None
+    )
+    x, y, w, h = _tile_region(
+        op.cell, op.tile_width, op.tile_height, op.margin, op.spacing
+    )
+    region_literal = f"Rect2({x}, {y}, {w}, {h})"
+
+    node_ref: str | None = None
+    prop = "texture"
+    if op.node is not None:
+        node_ref, prop = _split_node_property(op.node)
+        if op.mode == "region" and prop != "texture":
+            raise OperationError(
+                "add_sprite_image: mode='region' only supports the built-in "
+                "'texture' property; use mode='atlas' to target a custom property"
+            )
+
+    report = ValidationReport()
+    changed = False
+    affected: list[str] = []
+    allocated: dict[str, str] = {}
+
+    ext_result = _apply_add_ext_resource(
+        scene, AddExtResource(type=op.texture_type, path=op.texture), provider, strict
+    )
+    changed = changed or ext_result.changed
+    ext_id = ext_result.allocated_ids["id"]
+    allocated["ext_resource_id"] = ext_id
+
+    node_path: str | None = None
+    node_created = False
+    if node_ref is not None:
+        existing_path = _resolve_node_ref(scene, node_ref)
+        target_path = existing_path if existing_path is not None else node_ref
+        add_result = _apply_add_node(
+            scene, AddNode(path=target_path, type="Sprite2D"), provider, strict
+        )
+        node_path = (
+            add_result.affected_paths[0] if add_result.affected_paths else target_path
+        )
+        node_created = add_result.changed and existing_path is None
+        changed = changed or add_result.changed
+        report.merge(add_result.report)
+        affected.append(node_path)
+
+    if op.mode == "full":
+        node = scene.node(node_path)
+        assert node is not None
+        c1 = _set_property_if_changed(node, "texture", ext_resource_ref(ext_id))
+        c2 = (
+            _set_property_if_changed(node, "texture_filter", GInt(value=filter_int))
+            if filter_int is not None
+            else False
+        )
+        changed = changed or c1 or c2
+    elif op.mode == "region":
+        node = scene.node(node_path)
+        assert node is not None
+        c1 = _set_property_if_changed(node, "region_enabled", GBool(value=True))
+        c2 = _set_property_if_changed(node, "region_rect", parse_value(region_literal))
+        c3 = _set_property_if_changed(node, "texture", ext_resource_ref(ext_id))
+        c4 = (
+            _set_property_if_changed(node, "texture_filter", GInt(value=filter_int))
+            if filter_int is not None
+            else False
+        )
+        changed = changed or c1 or c2 or c3 or c4
+    else:  # atlas
+        sub_result = _apply_create_sub_resource(
+            scene,
+            CreateSubResource(
+                type="AtlasTexture",
+                id=op.id,
+                properties={
+                    "atlas": f'ExtResource("{ext_id}")',
+                    "region": region_literal,
+                },
+            ),
+            provider,
+            strict,
+        )
+        changed = changed or sub_result.changed
+        report.merge(sub_result.report)
+        sub_id = sub_result.allocated_ids["id"]
+        allocated["sub_resource_id"] = sub_id
+
+        if node_path is not None:
+            node = scene.node(node_path)
+            assert node is not None
+            # Validate the target property against the node's type spec.
+            # Sprite2D.texture is fine, but e.g. Sprite2D.closed_texture is not.
+            # If a resolver is available and the property is @export-ed by the
+            # attached script, skip validation (no warning needed).
+            if prop != "texture" and node.type is not None and not node.is_instance:
+                _is_script_exported = False
+                if resolver is not None and "script" in node.properties:
+                    script_val = node.properties["script"]
+                    if is_ext_resource_ref(script_val):
+                        ext_id = resource_ref_id(script_val)
+                        ext = scene.ext_resource(ext_id)
+                        if ext is not None:
+                            info = resolver.resolve_by_path(ext.path)
+                            if info is not None and prop in info.exported_vars:
+                                _is_script_exported = True
+                if not _is_script_exported:
+                    prop_report = validate_properties(
+                        scene=scene,
+                        model=provider.resolve_class(node.type),
+                        properties={prop: sub_resource_ref(sub_id)},
+                        has_script="script" in node.properties,
+                        node_path=node_path,
+                        provider=provider,
+                    )
+                    report.merge(prop_report)
+                    if prop_report.errors:
+                        raise SceneValidationError(
+                            "; ".join(str(e) for e in prop_report.errors)
+                        )
+            c1 = _set_property_if_changed(node, prop, sub_resource_ref(sub_id))
+            c2 = (
+                _set_property_if_changed(node, "texture_filter", GInt(value=filter_int))
+                if filter_int is not None
+                else False
+            )
+            changed = changed or c1 or c2
+
+    allocated["mode"] = op.mode
+    allocated["region"] = region_literal
+    allocated["node_created"] = "true" if node_created else "false"
+
+    _check_strict(report, strict)
+    return OpResult(
+        op=op.op,
+        changed=changed,
+        affected_paths=affected,
+        allocated_ids=allocated,
+        report=report,
+    )
+
+
 _APPLIERS = {
     "add_node": _apply_add_node,
     "delete_node": _apply_delete_node,
@@ -1066,6 +1374,7 @@ _APPLIERS = {
     "create_sub_resource": _apply_create_sub_resource,
     "connect_signal": _apply_connect_signal,
     "disconnect_signal": _apply_disconnect_signal,
+    "add_sprite_image": _apply_add_sprite_image,
 }
 
 
@@ -1075,11 +1384,18 @@ def apply_operation(
     *,
     provider: SpecProvider | None = None,
     strict: bool = True,
+    resolver: ClassResolver | None = None,
 ) -> OpResult:
     """Apply one operation, mutating `scene` in place."""
+    import inspect
+
     provider = provider or default_provider()
+    applier = _APPLIERS[operation.op]
+    kwargs: dict[str, object] = {}
+    if "resolver" in inspect.signature(applier).parameters:
+        kwargs["resolver"] = resolver
     try:
-        return _APPLIERS[operation.op](scene, operation, provider, strict)
+        return applier(scene, operation, provider, strict, **kwargs)
     except ValueError as exc:
         # e.g. a malformed scene path ('..' segments) or a bad literal
         raise OperationError(str(exc)) from exc
@@ -1091,6 +1407,7 @@ def apply_operations(
     *,
     provider: SpecProvider | None = None,
     strict: bool = True,
+    resolver: ClassResolver | None = None,
 ) -> ApplyResult:
     """Apply operations in order, all-or-nothing.
 
@@ -1104,10 +1421,20 @@ def apply_operations(
     for position, operation in enumerate(operations, start=1):
         try:
             results.append(
-                apply_operation(working, operation, provider=provider, strict=strict)
+                apply_operation(
+                    working,
+                    operation,
+                    provider=provider,
+                    strict=strict,
+                    resolver=resolver,
+                )
             )
         except OperationError as exc:
             raise OperationError(
+                f"operation {position} ({operation.op}): {exc}"
+            ) from exc
+        except SceneValidationError as exc:
+            raise SceneValidationError(
                 f"operation {position} ({operation.op}): {exc}"
             ) from exc
     return ApplyResult(scene=working, results=results)

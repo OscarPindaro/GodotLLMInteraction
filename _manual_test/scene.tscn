@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://c4test0connect"]
+
+[ext_resource type="Texture2D" path="res://tilemap.png" id="1_vassn"]
+
+[node name="Door" type="Node2D"]
+
+[node name="Button" type="Area2D" parent="."]
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 2.5
+one_shot = true
+
+[node name="Pippo" type="Sprite2D" parent="."]
+texture = ExtResource("1_vassn")
+
+[connection signal="body_entered" from="Button" to="." method="_on_button_body_entered"]
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
+[connection signal="timeout" from="Timer" to="Button" method="queue_free" flags=3]

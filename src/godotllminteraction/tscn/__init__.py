@@ -35,6 +35,7 @@ from godotllminteraction.tscn.operations import (
     AddExtResource,
     OpType,
     AddNode,
+    AddSpriteImage,
     ApplyResult,
     AttachScript,
     ConnectSignal,
@@ -90,6 +91,7 @@ def save_scene(scene: Scene, path: Path) -> None:
 __all__ = [
     "AddExtResource",
     "AddNode",
+    "AddSpriteImage",
     "ApplyResult",
     "AttachScript",
     "ClassInfo",

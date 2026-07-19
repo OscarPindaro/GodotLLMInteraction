@@ -18,7 +18,11 @@ from godotllminteraction.cli._common import (
     print_text,
     print_warning,
 )
-from godotllminteraction.tscn.exceptions import OperationError, TscnError
+from godotllminteraction.tscn.exceptions import (
+    OperationError,
+    SceneValidationError,
+    TscnError,
+)
 from godotllminteraction.tscn.godot_check import GodotNotFoundError
 
 app = typer.Typer(help="Godot scene (.tscn) utilities.")
@@ -155,10 +159,33 @@ def _run_operation(
     json_output: bool,
 ) -> None:
     """Load `scene_path`, apply one operation, and run it through _finish_apply."""
+    _run_operations(
+        scene_path,
+        [operation],
+        output=output,
+        dry_run=dry_run,
+        strict=strict,
+        json_output=json_output,
+    )
+
+
+def _run_operations(
+    scene_path: Path,
+    operations: list[tscn_lib.Operation],
+    *,
+    output: Path | None,
+    dry_run: bool,
+    strict: bool,
+    json_output: bool,
+    resolver: tscn_lib.ClassResolver | None = None,
+) -> None:
+    """Load `scene_path`, apply operations, and run them through _finish_apply."""
     scene, original_text = _load_scene_for_edit(scene_path)
     try:
-        result = tscn_lib.apply_operations(scene, [operation], strict=strict)
-    except OperationError as exc:
+        result = tscn_lib.apply_operations(
+            scene, operations, strict=strict, resolver=resolver
+        )
+    except (OperationError, SceneValidationError) as exc:
         if json_output:
             _emit_json({"ok": False, "error": str(exc)})
         print_error(str(exc))
@@ -292,17 +319,37 @@ def add_node(
     json_output: Annotated[bool, _JSON_OPTION] = False,
 ) -> None:
     """Add a node to the scene tree."""
-    operation = tscn_lib.AddNode(
-        path=path,
-        type=type,
-        instance=instance,
-        properties=_parse_properties(property_pairs),
-        groups=group or None,
-        index=index,
-    )
-    _run_operation(
+    # If --type is a script-defined class_name, resolve it to (base_type, script).
+    effective_type = type
+    script_to_attach: str | None = None
+    if type is not None and instance is None:
+        provider = tscn_lib.default_provider()
+        if provider.resolve_class(type) is None:
+            project = tscn_lib.find_project_path(scene_path)
+            if project is not None:
+                resolver = tscn_lib.ClassResolver(project)
+                info = resolver.resolve(type)
+                if info is not None:
+                    effective_type = info.base_type
+                    script_to_attach = info.script_path
+
+    operations: list[tscn_lib.Operation] = [
+        tscn_lib.AddNode(
+            path=path,
+            type=effective_type,
+            instance=instance,
+            properties=_parse_properties(property_pairs),
+            groups=group or None,
+            index=index,
+        )
+    ]
+    if script_to_attach is not None:
+        operations.append(
+            tscn_lib.AttachScript(path=path, script_path=script_to_attach)
+        )
+    _run_operations(
         scene_path,
-        operation,
+        operations,
         output=output,
         dry_run=dry_run,
         strict=strict,
@@ -612,6 +659,139 @@ def disconnect_signal(
         dry_run=dry_run,
         strict=strict,
         json_output=json_output,
+    )
+
+
+@app.command("add-sprite-image")
+def add_sprite_image(
+    scene_path: Annotated[
+        Path, typer.Argument(help="Scene file to edit.", exists=True, dir_okay=False)
+    ],
+    texture: Annotated[
+        str, typer.Argument(help="res:// path to a Texture2D resource.")
+    ],
+    col: Annotated[int, typer.Argument(help="Tile column (0-based).")],
+    row: Annotated[int, typer.Argument(help="Tile row (0-based).")],
+    node: Annotated[
+        Optional[str],
+        typer.Option(
+            "--node",
+            help="Target node ('Name', 'Path/To/Node', or 'Node.property'); "
+            "omit to only create the resource. Missing nodes are auto-created "
+            "as Sprite2D.",
+        ),
+    ] = None,
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="'region' (default: sets region_rect on the node, no extra "
+            "resource), 'atlas' (creates/reuses a shareable AtlasTexture "
+            "sub_resource), or 'full' (sets the whole texture directly, "
+            "no region).",
+        ),
+    ] = "region",
+    id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--id",
+            help="AtlasTexture sub_resource id (atlas mode only); pass a "
+            "readable name for clean dedup.",
+        ),
+    ] = None,
+    tile_width: Annotated[
+        int, typer.Option("--tile-width", help="Tile width in pixels.")
+    ] = 16,
+    tile_height: Annotated[
+        int, typer.Option("--tile-height", help="Tile height in pixels.")
+    ] = 16,
+    margin: Annotated[
+        int, typer.Option("--margin", help="Pixel offset before the grid starts.")
+    ] = 0,
+    spacing: Annotated[
+        int, typer.Option("--spacing", help="Pixel gap between tiles.")
+    ] = 0,
+    texture_filter: Annotated[
+        Optional[str],
+        typer.Option(
+            "--texture-filter",
+            help="0-5 or a name: nearest, linear, nearest_with_mipmaps, "
+            "linear_with_mipmaps, nearest_with_mipmaps_anisotropic, "
+            "linear_with_mipmaps_anisotropic. If omitted, texture_filter "
+            "is not set (uses project default).",
+        ),
+    ] = None,
+    texture_type: Annotated[
+        str,
+        typer.Option(
+            "--texture-type",
+            help="ext_resource type for the texture; override for custom "
+            ".tres texture classes.",
+        ),
+    ] = "Texture2D",
+    output: Annotated[Optional[Path], _OUTPUT_OPTION] = None,
+    dry_run: Annotated[bool, _DRY_RUN_OPTION] = False,
+    strict: Annotated[bool, _STRICT_OPTION] = True,
+    json_output: Annotated[bool, _JSON_OPTION] = False,
+) -> None:
+    """Set up a sprite tile from a texture atlas cell (region_rect or AtlasTexture)."""
+    filter_value: int | str | None
+    if texture_filter is None:
+        filter_value = None
+    else:
+        try:
+            filter_value = int(texture_filter)
+        except ValueError:
+            filter_value = texture_filter
+    operation = tscn_lib.AddSpriteImage(
+        texture=texture,
+        cell=(col, row),
+        node=node,
+        mode=mode,
+        id=id,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        margin=margin,
+        spacing=spacing,
+        texture_filter=filter_value,
+        texture_type=texture_type,
+    )
+
+    # If the node will be auto-created and its name matches a script-defined
+    # class_name, pre-create it with the script attached so custom properties
+    # pass validation. Also build a resolver for script export checking.
+    pre_ops: list[tscn_lib.Operation] = []
+    resolver: tscn_lib.ClassResolver | None = None
+    if node is not None:
+        node_ref = node.split(".")[0]  # 'Chest.closed_texture' -> 'Chest'
+        bare_name = node_ref.split("/")[-1]
+        project = tscn_lib.find_project_path(scene_path)
+        if project is not None:
+            resolver = tscn_lib.ClassResolver(project)
+            scene = tscn_lib.load_scene(scene_path)
+            # Check if the node already exists (by path or by bare name).
+            if "/" in node_ref:
+                existing = scene.node(node_ref)
+            else:
+                existing = next((n for n in scene.nodes if n.name == node_ref), None)
+            if existing is None:
+                info = resolver.resolve(bare_name)
+                if info is not None:
+                    pre_ops.append(tscn_lib.AddNode(path=node_ref, type=info.base_type))
+                    pre_ops.append(
+                        tscn_lib.AttachScript(
+                            path=node_ref, script_path=info.script_path
+                        )
+                    )
+
+    _run_operations(
+        scene_path,
+        pre_ops + [operation],
+        output=output,
+        dry_run=dry_run,
+        strict=strict,
+        json_output=json_output,
+        resolver=resolver,
     )
 
 

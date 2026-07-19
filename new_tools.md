@@ -158,6 +158,8 @@ tedious with current tools because each one requires multiple calls
 (`create_sub_resource` + `add_node` + `update_properties`) and manual region
 math.
 
+OK
+
 ### How `AtlasTexture` works in Godot
 
 An `AtlasTexture` is a `Texture2D` that crops a rectangle (`region =
@@ -182,10 +184,12 @@ atlas = ExtResource("1_atlas")
 region = Rect2(16, 0, 16, 16)
 ```
 
+OK
+
 ### Three sprite use cases
 
 **1. Static sprite (single frame):** One `AtlasTexture` assigned as
-`Sprite2D.texture`. The sprite never changes at runtime.
+`Sprite2D.texture`. The sprite never changes at runtime. <- Main Thin I want to develop
 
 **2. State-swapping sprite (multiple discrete states):** N `AtlasTexture`
 sub_resources (e.g. chest closed/half/open). The script swaps `sprite.texture`
@@ -201,7 +205,7 @@ Or an exported array:
 ```
 Then: `_sprite.texture = state_textures[state]` — no texture creation or
 region math in code. Godot loads the sub_resources automatically when the
-scene instantiates.
+scene instantiates. <-- I really don't like this implementation
 
 **3. Animated sprite (SpriteFrames + AnimatedSprite2D):** N `AtlasTexture`
 sub_resources (one per animation frame) bundled into a `SpriteFrames`
@@ -211,6 +215,9 @@ sub_resource, assigned to an `AnimatedSprite2D` node. See §2a and §2b below.
 > AtlasTextures: `Sprite2D` + `AnimationPlayer` with `hframes`/`vframes` —
 > the Sprite2D does its own slicing internally. This is out of scope for
 > these tools.
+
+We don't care about animation player!
+I don't care about 2.
 
 ### Proposal: cell-based input with configurable tile size + margin/spacing
 
@@ -279,20 +286,22 @@ the same `ext_resource` atlas PNG. The script then just swaps which one is
 assigned:
 ```gdscript
 _sprite.texture = state_textures[state]
-```
+``` <-- Very much not, i really don't like it, let's skip this behaviour
+
 
 instead of creating nodes and textures from scratch.
 
 ### Tool behavior (open questions — to decide)
 
 1. **Auto-create `Sprite2D` if missing?** If the target node (e.g.
-   `Chest/Sprite2D`) doesn't exist, create it automatically as a `Sprite2D`?
+   `Chest/Sprite2D`) doesn't exist, create it automatically as a `Sprite2D`? Yes, the idea is to use less tool calls
    Or error and require a separate `add_node` call first?
 2. **Auto-wire `texture` property?** After creating the `AtlasTexture`, also
    set it as the node's `texture = SubResource(...)`? For multi-state, the
    first call sets `texture`; later calls don't overwrite unless
    `set_texture=true` is passed. Or leave wiring to a separate
-   `update_properties` call?
+   `update_properties` call? Ok if the name of the node is passed, then set it. by default set it to texture, but maybe that
+   node has also other texture like field, i want the configurability, like MySprite.texture_1, i guess it should be exported^
 3. **Auto-manage `ext_resource` for atlas PNG?** Automatically add the atlas
    PNG as an `ext_resource` if not already declared, and reuse existing if
    the same path? Or require a separate `add_ext_resource` call?
@@ -307,7 +316,7 @@ instead of creating nodes and textures from scratch.
 ```
 add_atlas_texture(
     scene_path: str,           # path to .tscn
-    node: str,                 # scene path of target node (e.g. "Chest/Sprite2D")
+    node: str,                 # scene path of target node (e.g. "Chest/Sprite2D") <-- can be smart, if I pass Sprite2D, will look for a node with that name, without having to exactly naily the parents. useful for complex scenes.
     texture: str,              # res:// path of atlas PNG
     cell: tuple[int, int],     # (col, row) in the grid
     id: str | None = None,     # sub_resource id (auto-generated if None)
@@ -316,8 +325,8 @@ add_atlas_texture(
     margin: int = 0,           # pixel margin around the grid
     spacing: int = 0,          # pixel spacing between tiles
     # --- open questions ---
-    # set_texture: bool = ?     # auto-wire texture property?
-    # create_node: bool = ?     # auto-create Sprite2D if missing?
+    # set_texture: bool = ?     # auto-wire texture property? if sprite node provided, by default go to texture. if different that .texture, i would put the name in the node, like MySpecialThing.the_big_texture. I would do everything with the node parameter, with another name maybe
+    # create_node: bool = ?     # auto-create Sprite2D if missing? <-- IF the node is None, don't create anything. if set, create if absent. should be very clear in the MCP deszcirption
     output: str | None = None,
     strict: bool = True,
 )
@@ -340,7 +349,7 @@ animations; individual animations are added with `add_animation` (§2b).
    `add_animation` populate it?
 2. Should it also create/wire an `AnimatedSprite2D` node (with
    `sprite_frames = SubResource(...)` and `autoplay`)? Or leave node creation
-   to `add_node` / `create_scene`?
+   to `add_node` / `create_scene`? <-- same logic for what we said in the Sprite2D. if a node path is provided, than attach it, otherwise NOPE.
 3. What's the relationship between this and `add_animation`? (Create empty
    container vs create with content?)
 
